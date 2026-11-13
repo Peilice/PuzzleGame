@@ -504,6 +504,13 @@ h3 {
   padding: 4px;
   backdrop-filter: blur(4px);
 }
+.tools-items {
+  display: flex;
+  gap: 4px;
+}
+.tools.collapsed .tools-items {
+  display: none;
+}
 .tool {
   position: relative;
   font: inherit;

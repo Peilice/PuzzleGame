@@ -106,6 +106,8 @@ export const S = {
   zoomOut: '縮小',
   pause: '暫停',
   help: '說明',
+  collapseTools: '收起工具列',
+  expandTools: '展開工具列',
   hintTitle: '操作方式',
   hintClose: '關閉操作提示',
   hintMouse: [

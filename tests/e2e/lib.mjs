@@ -52,8 +52,11 @@ export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0,
   const place = inTray ? '.place-tray' : '.place-table';
   await page.click('.settings');
   await page.waitForSelector(place);
-  await page.click(place);
-  await page.waitForSelector(place + '.active');
+  // 已經是目標值就不要再點：點下去設定頁會重畫，緊接著的操作可能打到被換掉的節點
+  if (!(await page.$(place + '.active'))) {
+    await page.click(place);
+    await page.waitForSelector(place + '.active');
+  }
   await page.click('.back');
   await page.waitForSelector('.play');
   await page.click('.play');

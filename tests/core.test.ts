@@ -73,6 +73,7 @@ describe('存檔', () => {
     expect(m.settings.sound).toBe(true);
     // 舊存檔沒有 showHints → 預設顯示操作提示；已關閉的設定要保留
     expect(m.settings.showHints).toBe(true);
+    expect(m.settings.toolsCollapsed).toBe(false);
     expect(migrate({ version: 1, settings: { sound: false, table: 'oak', showHints: false } }).settings.showHints).toBe(false);
     expect(() => migrate({ version: 99 })).toThrow();
     // 壞掉的欄位不會帶進存檔
@@ -87,7 +88,7 @@ describe('存檔', () => {
     expect(dirty.completions).toHaveLength(1);
     expect(dirty.best).toEqual({ 'a|d150': 5 });
     expect(dirty.totalPlayMs).toBe(0);
-    expect(dirty.settings).toEqual({ sound: true, table: 'oak', showHints: true, startInTray: true });
+    expect(dirty.settings).toEqual({ sound: true, table: 'oak', showHints: true, startInTray: true, toolsCollapsed: false });
     expect(dirty.profile.equippedTitle).toBe('progress-0');
     expect(() => migrate('x')).toThrow();
   });

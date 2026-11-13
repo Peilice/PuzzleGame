@@ -27,6 +27,8 @@ const ICONS = {
   pause: '<path d="M8 5v14M16 5v14"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><path d="M12 17.2v.1"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  collapse: '<path d="M9 5l7 7-7 7"/>',
+  expand: '<path d="M15 5l-7 7 7 7"/>',
 };
 const icon = (k: keyof typeof ICONS) => `<svg viewBox="0 0 24 24" class="ic">${ICONS[k]}</svg>`;
 const hintRows = (rows: [string, string][]) => rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
@@ -39,6 +41,7 @@ function gameMarkup(img: PuzzleImage) {
         <button class="tool back" aria-label="${S.back}">${icon('back')}<span>${S.back}</span></button>
         <div class="hud-info"><span class="timer">00:00</span><span class="count"></span></div>
         <div class="tools">
+          <div class="tools-items">
           <button class="tool preview-btn" aria-pressed="false">${icon('preview')}<span>${S.preview}</span></button>
           <button class="tool edge-btn" aria-pressed="false">${icon('edge')}<span>${S.edgeOnly}</span></button>
           <button class="tool tray-btn" aria-pressed="false">${icon('tray')}<span>${S.tray}</span><b class="badge hidden"></b></button>
@@ -48,6 +51,8 @@ function gameMarkup(img: PuzzleImage) {
           <button class="tool zoom-in">${icon('plus')}<span>${S.zoomIn}</span></button>
           <button class="tool help-btn" aria-pressed="false">${icon('help')}<span>${S.help}</span></button>
           <button class="tool pause-btn">${icon('pause')}<span>${S.pause}</span></button>
+          </div>
+          <button class="tool tools-toggle" aria-expanded="true" aria-label="${S.collapseTools}">${icon('collapse')}</button>
         </div>
       </div>
       <img class="preview hidden" src="${asset(img.src)}" alt="">
@@ -248,6 +253,22 @@ function bindTools(node: HTMLElement, game: PuzzleGame, updateCount: () => void)
   q('.fit-btn').addEventListener('click', () => game.resetView());
   q('.zoom-in').addEventListener('click', () => game.zoomBy(1.3));
   q('.zoom-out').addEventListener('click', () => game.zoomBy(1 / 1.3));
+
+  // 工具列：可收成右上角一顆按鈕，狀態記在設定裡
+  const tools = q('.tools');
+  const toggle = q('.tools-toggle');
+  const setCollapsed = (collapsed: boolean, remember = true) => {
+    tools.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', collapsed ? S.expandTools : S.collapseTools);
+    toggle.innerHTML = icon(collapsed ? 'expand' : 'collapse');
+    if (remember && store.save.settings.toolsCollapsed !== collapsed) {
+      store.save.settings.toolsCollapsed = collapsed;
+      void persist();
+    }
+  };
+  setCollapsed(store.save.settings.toolsCollapsed, false);
+  toggle.addEventListener('click', () => setCollapsed(!tools.classList.contains('collapsed')));
 
   // 操作提示：顯示與否記在設定裡，關掉後不再自動出現，可用「說明」按鈕重新打開
   const hintEl = q('.hint');

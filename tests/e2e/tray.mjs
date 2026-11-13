@@ -114,6 +114,14 @@ const boardCenter = (page) => page.evaluate(() => window.__game.toScreen(window.
   await page.click('.tray-btn');
   checks.trayReopens = (await state(page)).open === true;
 
+  // 工具列收起 / 展開：收起後只剩切換鈕，展開後恢復；狀態記在設定裡
+  const visible = (sel) => page.$eval(sel, (e) => e.getBoundingClientRect().width > 0);
+  await page.click('.tools-toggle');
+  checks.toolsCollapse = !(await visible('.edge-btn')) && (await visible('.tools-toggle'));
+  await page.screenshot({ path: OUT + '/tray-06-tools-collapsed.png' });
+  await page.click('.tools-toggle');
+  checks.toolsExpand = await visible('.edge-btn');
+
   // 存檔：拿出兩片後離開，再續玩，托盤順序與內容一致
   await page.evaluate(() => {
     window.__game.trayScroll = 0;
