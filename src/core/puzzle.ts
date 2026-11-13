@@ -437,6 +437,38 @@ export function trayGeometry(L: Layout, innerW: number, count: number): TrayGeom
   return { cols, cellW, cellH, gap, scale, contentH: rows > 0 ? rows * cellH + (rows - 1) * gap : 0 };
 }
 
+export interface TrayRowGeometry {
+  rows: number;
+  cellW: number;
+  cellH: number;
+  gap: number;
+  scale: number;
+  contentW: number;
+}
+
+/** 下方托盤（橫向捲動）的格子排列：innerH 是可用高度（px），依序由上到下、再往右填 */
+export function trayRowGeometry(L: Layout, innerH: number, count: number): TrayRowGeometry {
+  const pad = piecePad(L);
+  const rows = innerH >= 230 ? 2 : 1;
+  const gap = 6;
+  const cellH = (innerH - (rows - 1) * gap) / rows;
+  const scale = cellH / (L.ph + 2 * pad);
+  const cellW = (L.pw + 2 * pad) * scale;
+  const cols = Math.ceil(count / rows);
+  return { rows, cellW, cellH, gap, scale, contentW: cols > 0 ? cols * cellW + (cols - 1) * gap : 0 };
+}
+
+/** 下方托盤：內容座標（相對於內容左上角）落在第幾格；不在任何格子上回傳 -1 */
+export function trayRowCellAt(g: TrayRowGeometry, count: number, x: number, y: number): number {
+  if (x < 0 || y < 0) return -1;
+  const col = Math.floor(x / (g.cellW + g.gap));
+  const row = Math.floor(y / (g.cellH + g.gap));
+  if (row >= g.rows) return -1;
+  if (x - col * (g.cellW + g.gap) > g.cellW || y - row * (g.cellH + g.gap) > g.cellH) return -1;
+  const k = col * g.rows + row;
+  return k < count ? k : -1;
+}
+
 /** 內容座標（相對於托盤內容左上角）落在第幾格；不在任何格子上回傳 -1 */
 export function trayCellAt(g: TrayGeometry, count: number, x: number, y: number): number {
   if (x < 0 || y < 0) return -1;

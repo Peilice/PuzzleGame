@@ -9,11 +9,18 @@ const browser = await launch();
 const checks = {};
 const allErrors = [];
 
-/** 第 k 格（托盤清單中的順序）目前的畫面座標中心；捲動時只在可視範圍內有意義 */
+/** 第 k 格（托盤清單中的順序）目前的畫面座標中心；捲動時只在可視範圍內有意義。下方托盤橫向排列、右側托盤直向排列 */
 const cellCenter = (page, k) =>
   page.evaluate((k) => {
     const g = window.__game;
     const r = g.trayRect();
+    if (g.bottomTray) {
+      const geo = g.trayRowGeom();
+      return {
+        x: 8 + Math.floor(k / geo.rows) * (geo.cellW + geo.gap) + geo.cellW / 2 - g.trayScroll,
+        y: r.y + 8 + (k % geo.rows) * (geo.cellH + geo.gap) + geo.cellH / 2,
+      };
+    }
     const geo = g.trayGeom();
     return {
       x: r.x + 8 + (k % geo.cols) * (geo.cellW + geo.gap) + geo.cellW / 2,
@@ -24,6 +31,10 @@ const cellCenter = (page, k) =>
 const firstVisibleCell = (page) =>
   page.evaluate(() => {
     const g = window.__game;
+    if (g.bottomTray) {
+      const geo = g.trayRowGeom();
+      return Math.ceil(g.trayScroll / (geo.cellW + geo.gap)) * geo.rows;
+    }
     const geo = g.trayGeom();
     return Math.ceil(g.trayScroll / (geo.cellH + geo.gap)) * geo.cols;
   });
@@ -46,6 +57,7 @@ const boardCenter = (page) => page.evaluate(() => window.__game.toScreen(window.
   const { page, errors } = await newPage(browser);
   await openGame(page, { inTray: true, image: 1, difficulty: -1 });
   const s0 = await state(page);
+  checks.desktopTrayAtBottom = await page.evaluate(() => window.__game.bottomTray && window.__game.trayRect().y > 0);
   checks.newGameAllInTray = s0.tray.length === s0.n && s0.open && s0.onTable === 0;
   checks.trayOrderIsRandom = s0.tray.some((v, i) => v !== i) && new Set(s0.tray).size === s0.n;
   await page.screenshot({ path: OUT + '/tray-01-new.png' });
@@ -167,6 +179,36 @@ const boardCenter = (page) => page.evaluate(() => window.__game.toScreen(window.
   const picked = s1.tray[k];
   await swipe(await cellCenter(page, k), { x: 300, y: 200 });
   checks.touchLeftPicksOut = await page.evaluate((i) => window.__game.pieces[i].tray === false, picked);
+
+  allErrors.push(...errors);
+  await page.close();
+}
+
+// ---------------------------------------------------------------- 觸控（平板直向：托盤在下方）
+{
+  const { page, errors } = await newPage(browser, { width: 768, height: 1024, isMobile: true, hasTouch: true });
+  await openGame(page, { inTray: true, image: 2, difficulty: -1 });
+  const s0 = await state(page);
+  checks.tabletTrayAtBottom = await page.evaluate(() => window.__game.bottomTray && window.__game.trayRect().x === 0);
+  const swipe = async (from, to) => {
+    const finger = await page.touchscreen.touchStart(from.x, from.y);
+    for (let k = 1; k <= 10; k++) await finger.move(from.x + ((to.x - from.x) * k) / 10, from.y + ((to.y - from.y) * k) / 10);
+    await finger.end();
+  };
+
+  // 左右滑動是捲動，不會拿起拼片
+  const c0 = await cellCenter(page, 0);
+  await swipe({ x: Math.min(c0.x + 300, 700), y: c0.y }, { x: 100, y: c0.y });
+  const s1 = await state(page);
+  checks.tabletHorizontalScrolls = s1.scroll > 0 && s1.tray.length === s0.tray.length;
+  await page.screenshot({ path: OUT + '/tray-07-tablet.png' });
+
+  // 往桌面（上）拖才是拿起
+  const k = await firstVisibleCell(page);
+  const picked = s1.tray[k];
+  const from = await cellCenter(page, k);
+  await swipe(from, { x: from.x, y: 300 });
+  checks.tabletUpPicksOut = await page.evaluate((i) => window.__game.pieces[i].tray === false, picked);
 
   allErrors.push(...errors);
   await page.close();

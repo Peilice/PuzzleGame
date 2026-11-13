@@ -79,10 +79,10 @@ const last = await page.evaluate(() => {
   g.setTrayOpen(true);
   g.resetView();
   const r = g.trayRect();
-  const geo = g.trayGeom();
+  const geo = g.bottomTray ? g.trayRowGeom() : g.trayGeom();
   const c = at(n - 1);
   return {
-    from: { x: r.x + 8 + geo.cellW / 2, y: g.trayTop + geo.cellH / 2 },
+    from: g.bottomTray ? { x: 8 + geo.cellW / 2, y: r.y + 8 + geo.cellH / 2 } : { x: r.x + 8 + geo.cellW / 2, y: g.trayTop + geo.cellH / 2 },
     to: g.toScreen(c.x + g.L.pw / 2 + 2, c.y + g.L.ph / 2 - 2),
   };
 });

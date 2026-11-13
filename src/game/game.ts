@@ -17,6 +17,8 @@ import {
   tableBounds,
   trayCellAt,
   trayGeometry,
+  trayRowCellAt,
+  trayRowGeometry,
   tracePiece,
   withTrayFallback,
   type Layout,
@@ -276,7 +278,7 @@ export class PuzzleGame {
     const b = tableBounds(this.pieces, this.L);
     const margin = 40;
     const vw = (c.clientWidth || 800) - this.trayInset();
-    const vh = c.clientHeight || 600;
+    const vh = (c.clientHeight || 600) - this.trayInsetY();
     const s = Math.min((vw - margin * 2) / (b.maxX - b.minX), (vh - margin * 2) / (b.maxY - b.minY));
     this.cam.s = s;
     this.cam.tx = (vw - (b.maxX - b.minX) * s) / 2 - b.minX * s;
@@ -359,24 +361,44 @@ export class PuzzleGame {
     return Math.round(Math.min(320, Math.max(170, this.o.canvas.clientWidth * 0.26)));
   }
 
-  /** 托盤佔掉的畫面寬度；收合時為 0 */
+  /** 平板、電腦（短邊 ≥ 600px）托盤放下方；手機維持在右側 */
+  private get bottomTray() {
+    return Math.min(window.innerWidth, window.innerHeight) >= 600;
+  }
+
+  /** 下方托盤高度（CSS px）：畫面高的 22%，限制在 130–200 之間 */
+  private trayHeight() {
+    return Math.round(Math.min(200, Math.max(130, this.o.canvas.clientHeight * 0.22)));
+  }
+
+  /** 右側托盤佔掉的畫面寬度；收合或在下方時為 0 */
   private trayInset() {
-    return this.trayOpen ? this.trayWidth() : 0;
+    return this.trayOpen && !this.bottomTray ? this.trayWidth() : 0;
+  }
+
+  /** 下方托盤佔掉的畫面高度；收合或在右側時為 0 */
+  private trayInsetY() {
+    return this.trayOpen && this.bottomTray ? this.trayHeight() : 0;
   }
 
   /** 托盤在畫面上的範圍；收合時為 null */
   private trayRect() {
     if (!this.trayOpen) return null;
-    const w = this.trayWidth();
     const c = this.o.canvas;
-    return { x: c.clientWidth - w, w, h: c.clientHeight };
+    if (this.bottomTray) {
+      const h = this.trayHeight();
+      return { x: 0, y: c.clientHeight - h, w: c.clientWidth, h };
+    }
+    const w = this.trayWidth();
+    return { x: c.clientWidth - w, y: 0, w, h: c.clientHeight };
   }
 
-  /** 通知頁面其他元素（預覽圖）避開托盤，並量出托盤內容區的上緣（HUD 下方） */
+  /** 通知頁面其他元素（預覽圖、提示）避開托盤，並量出右側托盤內容區的上緣（HUD 下方） */
   private layoutTray() {
     const c = this.o.canvas;
     const host = c.parentElement;
     host?.style.setProperty('--tray-w', `${this.trayInset()}px`);
+    host?.style.setProperty('--tray-h', `${this.trayInsetY()}px`);
     const hud = host?.querySelector('.hud');
     this.trayTop = hud ? Math.max(0, hud.getBoundingClientRect().bottom - c.getBoundingClientRect().top) + 6 : 56;
     this.clampTrayScroll();
@@ -390,6 +412,17 @@ export class PuzzleGame {
     return trayGeometry(this.L, this.trayWidth() - TRAY_MARGIN * 2, this.trayList().length);
   }
 
+  private trayRowGeom() {
+    return trayRowGeometry(this.L, this.trayHeight() - TRAY_MARGIN * 2, this.trayList().length);
+  }
+
+  /** 托盤捲動方向的可視長度與內容長度（右側為垂直、下方為水平） */
+  private trayScrollExtent() {
+    const c = this.o.canvas;
+    if (this.bottomTray) return { view: c.clientWidth - TRAY_MARGIN * 2, content: this.trayRowGeom().contentW };
+    return { view: c.clientHeight - this.trayTop - TRAY_MARGIN, content: this.trayGeom().contentH };
+  }
+
   private invalidateTray() {
     this.trayListCache = null;
     this.clampTrayScroll();
@@ -397,21 +430,28 @@ export class PuzzleGame {
   }
 
   private clampTrayScroll() {
-    const viewH = this.o.canvas.clientHeight - this.trayTop - TRAY_MARGIN;
-    this.trayScroll = Math.max(0, Math.min(this.trayScroll, this.trayGeom().contentH - viewH));
+    const { view, content } = this.trayScrollExtent();
+    this.trayScroll = Math.max(0, Math.min(this.trayScroll, content - view));
   }
 
   private inTray(pt: { x: number; y: number }) {
     const r = this.trayRect();
-    return !!r && pt.x >= r.x;
+    if (!r) return false;
+    return this.bottomTray ? pt.y >= r.y : pt.x >= r.x;
   }
 
   /** 螢幕座標指到的托盤拼片索引；沒有指到回傳 -1 */
   private trayPieceAt(pt: { x: number; y: number }) {
     const r = this.trayRect();
-    if (!r || pt.y < this.trayTop) return -1;
+    if (!r) return -1;
     const list = this.trayList();
-    const k = trayCellAt(this.trayGeom(), list.length, pt.x - r.x - TRAY_MARGIN, pt.y - this.trayTop + this.trayScroll);
+    let k: number;
+    if (this.bottomTray) {
+      k = trayRowCellAt(this.trayRowGeom(), list.length, pt.x - TRAY_MARGIN + this.trayScroll, pt.y - r.y - TRAY_MARGIN);
+    } else {
+      if (pt.y < this.trayTop) return -1;
+      k = trayCellAt(this.trayGeom(), list.length, pt.x - r.x - TRAY_MARGIN, pt.y - this.trayTop + this.trayScroll);
+    }
     return k < 0 ? -1 : list[k];
   }
 
@@ -429,31 +469,40 @@ export class PuzzleGame {
     this.o.onChange();
   }
 
-  /** 一組拼片放在托盤上方放不進去（多片相連）時，推到托盤左邊，避免被托盤蓋住 */
+  /** 一組拼片放在托盤上方放不進去（多片相連）時，推離托盤（右側托盤往左、下方托盤往上），避免被托盤蓋住 */
   private nudgeLeftOfTray(group: number) {
     const r = this.trayRect();
     if (!r) return;
+    const members = this.membersByGroup().get(group) ?? [];
+    if (this.bottomTray) {
+      const limit = this.toWorld(0, r.y - 8).y;
+      let bottom = -Infinity;
+      for (const i of members) bottom = Math.max(bottom, this.pieces[i].y + this.L.ph);
+      if (bottom > limit) moveGroup(this.pieces, group, 0, limit - bottom);
+      return;
+    }
     const limit = this.toWorld(r.x - 8, 0).x;
     let right = -Infinity;
-    for (const i of this.membersByGroup().get(group) ?? []) right = Math.max(right, this.pieces[i].x + this.L.pw);
+    for (const i of members) right = Math.max(right, this.pieces[i].x + this.L.pw);
     if (right > limit) moveGroup(this.pieces, group, limit - right, 0);
   }
 
-  /** 托盤上拖曳：滑鼠按住拼片往任何方向都是拿起；觸控往桌面（左）拖才拿起，上下滑動是捲動 */
+  /** 托盤上拖曳：滑鼠按住拼片往任何方向都是拿起；觸控往桌面拖（右側托盤向左、下方托盤向上）才拿起，沿托盤方向滑動是捲動 */
   private moveTrayPress(tp: NonNullable<PuzzleGame['trayPress']>, pt: { x: number; y: number }, pointerType: string) {
     const dx = pt.x - tp.sx;
     const dy = pt.y - tp.sy;
+    const bottom = this.bottomTray;
     if (!tp.scrolling) {
       if (Math.hypot(dx, dy) < 8) return;
-      const leftward = dx < 0 && Math.abs(dx) > Math.abs(dy);
-      if (tp.piece >= 0 && (pointerType !== 'touch' || leftward)) {
+      const towardTable = bottom ? dy < 0 && Math.abs(dy) > Math.abs(dx) : dx < 0 && Math.abs(dx) > Math.abs(dy);
+      if (tp.piece >= 0 && (pointerType !== 'touch' || towardTable)) {
         this.trayPress = null;
         this.pickFromTray(tp.piece, pt, tp.pointerId);
         return;
       }
       tp.scrolling = true;
     }
-    this.trayScroll = tp.scroll0 - dy;
+    this.trayScroll = tp.scroll0 - (bottom ? dx : dy);
     this.clampTrayScroll();
     this.dirty = true;
   }
@@ -648,7 +697,9 @@ export class PuzzleGame {
     const pt = this.local(e);
     const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
     if (this.inTray(pt)) {
-      this.trayScroll += delta;
+      // 下方托盤橫向捲動：觸控板橫向滑動優先，其次滾輪（deltaY）
+      const dx = e.deltaMode === 1 ? e.deltaX * 33 : e.deltaX;
+      this.trayScroll += this.bottomTray && Math.abs(dx) > Math.abs(delta) ? dx : delta;
       this.clampTrayScroll();
       this.dirty = true;
       return;
@@ -713,11 +764,39 @@ export class PuzzleGame {
     const { ctx } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = this.trayHot ? 'rgba(74, 46, 18, 0.93)' : 'rgba(30, 18, 8, 0.86)';
-    ctx.fillRect(r.x, 0, r.w, r.h);
+    ctx.fillRect(r.x, r.y, r.w, r.h);
     ctx.fillStyle = this.trayHot ? '#ffb74d' : 'rgba(255, 255, 255, 0.18)';
-    ctx.fillRect(r.x, 0, this.trayHot ? 3 : 1.5, r.h);
-
+    const edge = this.trayHot ? 3 : 1.5;
     const list = this.trayList();
+
+    if (this.bottomTray) {
+      ctx.fillRect(r.x, r.y, r.w, edge);
+      const g = this.trayRowGeom();
+      const viewW = r.w - TRAY_MARGIN * 2;
+      const step = g.cellW + g.gap;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.clip();
+      const firstCol = Math.max(0, Math.floor(this.trayScroll / step));
+      const endCol = Math.ceil((this.trayScroll + viewW) / step);
+      const end = Math.min(list.length, endCol * g.rows);
+      for (let k = firstCol * g.rows; k < end; k++) {
+        const x = TRAY_MARGIN + Math.floor(k / g.rows) * step - this.trayScroll;
+        const y = r.y + TRAY_MARGIN + (k % g.rows) * (g.cellH + g.gap);
+        ctx.drawImage(this.sprites[list[k]], x, y, g.cellW, g.cellH);
+      }
+      if (g.contentW > viewW) {
+        const w = Math.max(24, (viewW * viewW) / g.contentW);
+        const x = TRAY_MARGIN + (viewW - w) * (this.trayScroll / (g.contentW - viewW));
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(x, r.y + r.h - 4, w, 2.5);
+      }
+      ctx.restore();
+      return;
+    }
+
+    ctx.fillRect(r.x, 0, edge, r.h);
     const g = this.trayGeom();
     const viewH = r.h - this.trayTop;
     const step = g.cellH + g.gap;
