@@ -120,6 +120,12 @@ export const S = {
     ['雙指拖動', '移動畫面'],
     ['雙指捏合', '縮放'],
   ] as [string, string][],
+  /** 平板的托盤在下方，所以是往上拖 */
+  hintTouchTablet: [
+    ['單指拖曳', '移動拼片（托盤內往上拖拿出）'],
+    ['雙指拖動', '移動畫面'],
+    ['雙指捏合', '縮放'],
+  ] as [string, string][],
   paused: '已暫停',
   resumeGame: '繼續拼圖',
   leaveGame: '離開（自動存檔）',

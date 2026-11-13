@@ -59,7 +59,7 @@ function gameMarkup(img: PuzzleImage) {
       <aside class="hint hidden" aria-label="${S.hintTitle}">
         <button class="hint-close" aria-label="${S.hintClose}">${icon('close')}</button>
         <dl class="hint-list hint-mouse">${hintRows(S.hintMouse)}</dl>
-        <dl class="hint-list hint-touch">${hintRows(S.hintTouch)}</dl>
+        <dl class="hint-list hint-touch">${hintRows(Math.min(window.innerWidth, window.innerHeight) >= 600 ? S.hintTouchTablet : S.hintTouch)}</dl>
       </aside>
       <div class="overlay loading"><div class="spinner"></div><p>${S.loadingImage}</p></div>
       <div class="rotate-hint"><div class="phone-icon"></div><p>${S.rotateDevice}</p><small>${S.rotateDeviceHint}</small></div>
