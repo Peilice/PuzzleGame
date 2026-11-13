@@ -25,13 +25,14 @@ export function showHome() {
         <div class="hero-text">
           <h1 class="app-name">${S.appName}</h1>
           <p class="tagline">${S.appTagline}</p>
+          <p class="exhibit">${S.exhibition(content.images.length)}</p>
           <div class="equipped"><span class="label">${S.equipped}</span>${titleBadge(equipped)}</div>
           <div class="hero-actions">
             <button class="btn primary big play">${S.play}</button>
             <button class="btn big continue hidden">${S.continueLast}</button>
           </div>
         </div>
-        ${hero ? `<span class="hero-credit">${esc(hero.name)}</span>` : ''}
+        ${hero ? `<aside class="wall-label hero-label"><small>${S.nowShowing}</small><strong>${esc(hero.name)}</strong>${hero.artist ? `<span>${esc(hero.artist)}</span>` : ''}${hero.license ? `<em>${esc(hero.license)}</em>` : ''}</aside>` : ''}
       </section>
     </main>`);
   if (hero) node.querySelector<HTMLElement>('.hero')!.style.setProperty('--hero', `url("${asset(hero.src)}")`);

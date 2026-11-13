@@ -307,6 +307,8 @@ function showResult(node: HTMLElement, img: PuzzleImage, diff: Difficulty, resul
     )
     .join('');
   const o = el(`<div class="overlay result"><div class="panel">
+      <div class="frame"><img class="result-img" src="${asset(img.thumb)}" alt=""></div>
+      <p class="room">${S.collected}</p>
       <h2>${S.completeTitle}</h2>
       <p class="muted">${esc(img.name)} · ${S.pieces(diff.label)}</p>
       <div class="result-time"><span>${S.timeUsed}</span><strong>${formatTime(timeMs)}</strong>

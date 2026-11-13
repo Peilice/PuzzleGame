@@ -40,6 +40,17 @@ body {
   overscroll-behavior: none;
 }
 
+/* 牆面打光：上方一盞軌道燈的光暈 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 55% at 50% -8%, rgba(255, 238, 205, 0.16), transparent 70%),
+    radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.55), transparent 60%);
+  z-index: 0;
+}
+
 #app {
   position: relative;
   z-index: 1;
@@ -181,6 +192,19 @@ h3 {
   justify-self: start;
   font-size: 14px;
 }
+.topbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.topbar h1::before,
+.topbar h1::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.8;
+}
 
 /* ------------------------------------------------------------ 主畫面：滿版主視覺 */
 .screen.home {
@@ -248,11 +272,13 @@ h3 {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(11, 11, 11, 0.35) 0%, rgba(11, 11, 11, 0) 35%, rgba(11, 11, 11, 0.92) 100%);
+  background: linear-gradient(90deg, rgba(11, 11, 11, 0.75) 0%, rgba(11, 11, 11, 0.35) 45%, rgba(11, 11, 11, 0) 75%),
+    linear-gradient(180deg, rgba(11, 11, 11, 0.35) 0%, rgba(11, 11, 11, 0) 35%, rgba(11, 11, 11, 0.92) 100%);
 }
 .hero-text {
   position: relative;
   max-width: 560px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 .app-name {
   font-size: clamp(44px, 9vw, 92px);
@@ -280,13 +306,47 @@ h3 {
   flex-wrap: wrap;
   gap: 12px;
 }
-.hero-credit {
+.exhibit {
+  margin: -8px 0 18px;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+.wall-label {
   position: absolute;
   right: 28px;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(40px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 170px;
+  padding: 12px 16px;
+  background: rgba(236, 230, 216, 0.94);
+  color: #1d1a14;
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+.wall-label small {
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  color: #7a6a3e;
+}
+.wall-label strong {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+.wall-label span {
+  font-family: var(--serif);
+  font-style: italic;
   font-size: 12px;
-  letter-spacing: 0.25em;
-  color: #bdbdbd;
+}
+.wall-label em {
+  font-style: normal;
+  font-size: 11px;
+  color: #6b6b6b;
+  letter-spacing: 0.1em;
 }
 
 /* ------------------------------------------------------------ 稱號徽章與稀有度 */
@@ -391,11 +451,43 @@ h3 {
 .cat-card h2 {
   font-size: 26px;
 }
+.room {
+  display: block;
+  margin: 0 0 4px;
+  font-family: var(--serif);
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  color: var(--accent);
+}
+.cat-card::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+  transition: inset 0.3s, border-color 0.3s;
+}
+.cat-card:hover::after {
+  inset: 14px;
+  border-color: var(--accent);
+}
 .cat-card p {
   margin: 4px 0 8px;
   color: #c4c4c4;
   font-size: 13px;
   letter-spacing: 0.1em;
+}
+.img-card::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(201, 164, 92, 0.75);
+  pointer-events: none;
+  transition: inset 0.3s, border-color 0.3s;
+}
+.img-card:hover::after {
+  inset: 12px;
+  border-color: var(--accent);
 }
 .img-card h3 {
   font-size: 16px;
@@ -466,6 +558,34 @@ h3 {
 }
 .diff-modal .muted {
   margin: 4px 0 10px;
+}
+.modal .frame,
+.panel .frame {
+  padding: 8px;
+  background: #ece6d8;
+  border: 4px solid #2a2118;
+  outline: 1px solid #8a7440;
+  box-shadow: 0 10px 18px -8px rgba(0, 0, 0, 0.8), inset 0 2px 6px rgba(0, 0, 0, 0.3);
+  margin: 4px 4px 0;
+}
+.artist {
+  margin: 2px 0 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.modal .artist {
+  margin-bottom: 8px;
+}
+.result-img {
+  display: block;
+  width: 100%;
+  max-height: 28vh;
+  object-fit: cover;
+}
+.panel .room {
+  margin: 8px 0 0;
 }
 .diff-thumb {
   width: 100%;
@@ -622,7 +742,8 @@ h3 {
   bottom: calc(12px + var(--tray-h, 0px) + env(safe-area-inset-bottom));
   width: min(30vw, 340px);
   border-radius: 2px;
-  border: 2px solid #ececec;
+  border: 6px solid #ece6d8;
+  outline: 4px solid #2a2118;
   box-shadow: var(--shadow);
   cursor: pointer;
 }
@@ -1143,10 +1264,6 @@ summary::after {
   .grid.cats {
     grid-template-columns: 1fr;
   }
-  .img-card .dot {
-    padding: 1px 4px;
-    font-size: 10px;
-  }
   .home-bar {
     padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
   }
@@ -1160,8 +1277,12 @@ summary::after {
   .hero {
     padding: 24px 18px calc(36px + env(safe-area-inset-bottom));
   }
-  .hero-credit {
-    display: none;
+  .wall-label {
+    right: 18px;
+    bottom: auto;
+    top: 76px;
+    min-width: 0;
+    padding: 8px 12px;
   }
 }
 
