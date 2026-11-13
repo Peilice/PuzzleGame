@@ -1,32 +1,40 @@
 // 主畫面。
 import { allProgress } from '../../core/storage';
-import { el, esc, mount } from '../dom';
+import { asset, el, esc, mount } from '../dom';
 import { nav } from '../nav';
 import { content, defById, store, titleBadge } from '../state';
 import { S } from '../strings';
 
-const LOGO = `<svg viewBox="0 0 100 100" width="84" height="84"><path fill="#f4b942" d="M10 10h32c0-10 16-10 16 0h32v32c-10 0-10 16 0 16v32H58c0 10-16 10-16 0H10V58c10 0 10-16 0-16z"/><path fill="#e07a5f" d="M10 10h32c0-10 16-10 16 0h-8v40H10V42c10 0 10-16 0-16z" opacity=".9"/><path fill="#81b29a" d="M50 50h40v8c-10 0-10 16 0 16v16H58c0 10-16 10-16 0h8z" opacity=".9"/></svg>`;
+const LOGO = `<svg viewBox="0 0 100 100" width="24" height="24"><path fill="#f4b942" d="M10 10h32c0-10 16-10 16 0h32v32c-10 0-10 16 0 16v32H58c0 10-16 10-16 0H10V58c10 0 10-16 0-16z"/><path fill="#e07a5f" d="M10 10h32c0-10 16-10 16 0h-8v40H10V42c10 0 10-16 0-16z" opacity=".9"/><path fill="#81b29a" d="M50 50h40v8c-10 0-10 16 0 16v16H58c0 10-16 10-16 0h8z" opacity=".9"/></svg>`;
 
 export function showHome() {
   const equipped = defById.get(store.save.profile.equippedTitle);
+  // 主視覺：每次進主畫面隨機挑一幅
+  const hero = content.images[Math.floor(Math.random() * content.images.length)];
   const node = el(`
     <main class="screen home">
-      <div class="home-card">
-        <div class="logo" aria-hidden="true">${LOGO}</div>
-        <h1 class="app-name">${S.appName}</h1>
-        <p class="tagline">${S.appTagline}</p>
-        <div class="equipped"><span class="label">${S.equipped}</span>${titleBadge(equipped, 'big')}</div>
-        <div class="menu">
-          <button class="btn primary big play">${S.play}</button>
-          <button class="btn big continue hidden">${S.continueLast}</button>
-          <div class="row">
-            <button class="btn titles">${S.titles}</button>
-            <button class="btn stats">${S.stats}</button>
-            <button class="btn settings">${S.settings}</button>
+      <nav class="home-bar">
+        <span class="brand"><span aria-hidden="true">${LOGO}</span><span>${S.appName}</span></span>
+        <span class="links">
+          <button class="link titles">${S.titles}</button>
+          <button class="link stats">${S.stats}</button>
+          <button class="link settings">${S.settings}</button>
+        </span>
+      </nav>
+      <section class="hero">
+        <div class="hero-text">
+          <h1 class="app-name">${S.appName}</h1>
+          <p class="tagline">${S.appTagline}</p>
+          <div class="equipped"><span class="label">${S.equipped}</span>${titleBadge(equipped)}</div>
+          <div class="hero-actions">
+            <button class="btn primary big play">${S.play}</button>
+            <button class="btn big continue hidden">${S.continueLast}</button>
           </div>
         </div>
-      </div>
+        ${hero ? `<span class="hero-credit">${esc(hero.name)}</span>` : ''}
+      </section>
     </main>`);
+  if (hero) node.querySelector<HTMLElement>('.hero')!.style.setProperty('--hero', `url("${asset(hero.src)}")`);
   node.querySelector('.play')!.addEventListener('click', nav.categories);
   node.querySelector('.titles')!.addEventListener('click', nav.titles);
   node.querySelector('.stats')!.addEventListener('click', nav.stats);

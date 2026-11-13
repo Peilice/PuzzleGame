@@ -38,10 +38,10 @@ const rarityNames: Record<Rarity, string> = {
 
 /** 桌面顏色名稱（id 見 theme.ts） */
 const tableNames: Record<string, string> = {
-  oak: '橡木',
-  walnut: '胡桃木',
-  felt: '綠絨布',
-  slate: '石板灰',
+  ink: '墨黑',
+  graphite: '石墨灰',
+  midnight: '午夜藍',
+  wine: '深酒紅',
 };
 
 function titleCondition(c: TitleCondition): string {
@@ -74,7 +74,7 @@ function duration(ms: number) {
 }
 
 export const S = {
-  appName: '拼圖工坊',
+  appName: '百景日常',
   appTagline: '一片一片，拼出好風景',
   equipped: '目前稱號',
   play: '開始拼圖',

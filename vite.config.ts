@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*'],
       manifest: {
-        name: '拼圖工坊',
-        short_name: '拼圖工坊',
+        name: '百景日常',
+        short_name: '百景日常',
         description: '離線拼圖遊戲：五大分類、四種難度與稱號收集',
         lang: 'zh-Hant-TW',
         start_url: './',

@@ -763,9 +763,9 @@ export class PuzzleGame {
     if (!r) return;
     const { ctx } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.fillStyle = this.trayHot ? 'rgba(74, 46, 18, 0.93)' : 'rgba(30, 18, 8, 0.86)';
+    ctx.fillStyle = this.trayHot ? 'rgba(38, 36, 32, 0.95)' : 'rgba(10, 10, 10, 0.88)';
     ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.fillStyle = this.trayHot ? '#ffb74d' : 'rgba(255, 255, 255, 0.18)';
+    ctx.fillStyle = this.trayHot ? '#c9a45c' : 'rgba(255, 255, 255, 0.18)';
     const edge = this.trayHot ? 3 : 1.5;
     const list = this.trayList();
 

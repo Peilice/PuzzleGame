@@ -88,7 +88,7 @@ describe('存檔', () => {
     expect(dirty.completions).toHaveLength(1);
     expect(dirty.best).toEqual({ 'a|d150': 5 });
     expect(dirty.totalPlayMs).toBe(0);
-    expect(dirty.settings).toEqual({ sound: true, table: 'oak', showHints: true, startInTray: true, toolsCollapsed: false });
+    expect(dirty.settings).toEqual({ sound: true, table: 'ink', showHints: true, startInTray: true, toolsCollapsed: false });
     expect(dirty.profile.equippedTitle).toBe('progress-0');
     expect(() => migrate('x')).toThrow();
   });

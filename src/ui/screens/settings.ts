@@ -10,9 +10,10 @@ import { TABLE_COLORS } from '../theme';
 
 export function showSettings() {
   const { settings } = store.save;
+  const activeTable = TABLE_COLORS.find((c) => c.id === settings.table)?.id ?? TABLE_COLORS[0].id;
   const colors = TABLE_COLORS.map((c) => {
     const name = esc(S.tableNames[c.id] ?? c.id);
-    return `<button class="swatch ${c.id === settings.table ? 'active' : ''}" data-id="${c.id}" style="background:${c.css}" aria-label="${name}"><span>${name}</span></button>`;
+    return `<button class="swatch ${c.id === activeTable ? 'active' : ''}" data-id="${c.id}" style="background:${c.css}" aria-label="${name}"><span>${name}</span></button>`;
   }).join('');
   const credits = content.images
     .map(

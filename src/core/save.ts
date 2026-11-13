@@ -63,7 +63,7 @@ export function createSave(now = Date.now()): SaveData {
     best: {},
     unlockedTitles: { [INITIAL_TITLE]: now },
     totalPlayMs: 0,
-    settings: { sound: true, table: 'oak', showHints: true, startInTray: true, toolsCollapsed: false },
+    settings: { sound: true, table: 'ink', showHints: true, startInTray: true, toolsCollapsed: false },
   };
 }
 
