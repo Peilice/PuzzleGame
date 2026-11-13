@@ -2,16 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { CATEGORIES, DIFFICULTIES, pieceCount, type Content, type PuzzleImage } from '../src/core/content';
 import { createSave, migrate, recordCompletion, type SaveData } from '../src/core/save';
 import { computeStats } from '../src/core/stats';
+import { toProgress } from '../src/core/storage';
 import { buildTitles, evaluateTitles, visibleTitles } from '../src/core/titles';
 import {
   arrangeAround,
   correctPos,
   dropGroup,
+  enterTray,
+  gatherToTray,
   generateEdges,
   isComplete,
+  leaveTray,
+  looseSingles,
   makeLayout,
   newPieces,
+  sanitizeTray,
+  shuffledOrder,
+  tableBounds,
+  trayCellAt,
+  trayGeometry,
   tracePiece,
+  withTrayFallback,
   type PieceEdges,
   type PieceState,
 } from '../src/core/puzzle';
@@ -76,7 +87,7 @@ describe('存檔', () => {
     expect(dirty.completions).toHaveLength(1);
     expect(dirty.best).toEqual({ 'a|d150': 5 });
     expect(dirty.totalPlayMs).toBe(0);
-    expect(dirty.settings).toEqual({ sound: true, table: 'oak', showHints: true });
+    expect(dirty.settings).toEqual({ sound: true, table: 'oak', showHints: true, startInTray: true });
     expect(dirty.profile.equippedTitle).toBe('progress-0');
     expect(() => migrate('x')).toThrow();
   });
@@ -324,22 +335,16 @@ describe('吸附與鎖定', () => {
     expect(isComplete(p)).toBe(true);
   });
 
-  it('整理散片：只移動指定的拼片，優先條件的拼片排在最內圈的前幾格', () => {
+  it('散放：只移動指定的拼片，相同種子結果相同', () => {
     const L = makeLayout(4, 3);
-    const pieces: PieceState[] = Array.from({ length: 12 }, (_, i) => ({ x: 0, y: 0, group: i, locked: false }));
+    const fresh = (): PieceState[] => Array.from({ length: 12 }, (_, i) => ({ x: 0, y: 0, group: i, locked: false }));
+    const pieces = fresh();
     const targets = [0, 1, 2, 3, 4, 5, 6, 7];
-    const first = new Set([5, 6, 7]);
-    arrangeAround(pieces, L, targets, 123, (i) => first.has(i));
-    // 沒指定的拼片不動
+    arrangeAround(pieces, L, targets, 123);
     for (const i of [8, 9, 10, 11]) expect(pieces[i]).toMatchObject({ x: 0, y: 0 });
-    // 最內圈從左上角開始排：優先的 3 片佔據上排最左邊 3 格（y 相同、x 最小）
-    const topY = Math.min(...targets.map((i) => pieces[i].y));
-    const byX = [...targets].sort((a, b) => pieces[a].x - pieces[b].x);
-    expect(new Set(byX.slice(0, 3))).toEqual(first);
-    for (const i of first) expect(Math.abs(pieces[i].y - topY)).toBeLessThan(L.ph * 0.3);
-    // 相同種子結果相同
-    const again: PieceState[] = Array.from({ length: 12 }, (_, i) => ({ x: 0, y: 0, group: i, locked: false }));
-    arrangeAround(again, L, targets, 123, (i) => first.has(i));
+    for (const i of targets) expect(pieces[i].x !== 0 || pieces[i].y !== 0).toBe(true);
+    const again = fresh();
+    arrangeAround(again, L, targets, 123);
     expect(again).toEqual(pieces);
   });
 
@@ -350,5 +355,127 @@ describe('吸附與鎖定', () => {
       const inside = q.x + big.pw > 0 && q.x < big.boardW && q.y + big.ph > 0 && q.y < big.boardH;
       expect(inside).toBe(false);
     }
+  });
+});
+
+describe('托盤', () => {
+  const L = makeLayout(4, 3);
+  const fresh = () => newPieces(L, 7);
+  const inTray = (p: PieceState[]) => p.map((q, i) => (q.tray ? i : -1)).filter((i) => i >= 0);
+
+  it('初始順序是種子決定的隨機排列，不是依拼片位置或索引排序', () => {
+    const a = shuffledOrder(12, 7);
+    expect([...a].sort((x, y) => x - y)).toEqual(Array.from({ length: 12 }, (_, i) => i));
+    expect(shuffledOrder(12, 7)).toEqual(a);
+    expect(shuffledOrder(12, 8)).not.toEqual(a);
+    expect(a).not.toEqual([...a].sort((x, y) => x - y));
+  });
+
+  it('放進托盤接在最後；已在托盤、已鎖定或已合併的拼片放不進去', () => {
+    const p = fresh();
+    const order: number[] = [];
+    expect(enterTray(p, order, 3)).toBe(true);
+    expect(enterTray(p, order, 5)).toBe(true);
+    expect(order).toEqual([3, 5]);
+    expect(p[3].tray).toBe(true);
+    expect(enterTray(p, order, 3)).toBe(false);
+    p[1].locked = true;
+    expect(enterTray(p, order, 1)).toBe(false);
+    p[7].group = p[8].group = 7; // 7、8 相連
+    expect(enterTray(p, order, 7)).toBe(false);
+    expect(order).toEqual([3, 5]);
+  });
+
+  it('拿出托盤：從順序移除、放到指定位置；其餘拼片順序不變', () => {
+    const p = fresh();
+    const order = [4, 2, 9];
+    for (const i of order) p[i].tray = true;
+    expect(leaveTray(p, order, 2, 10, 20)).toBe(true);
+    expect(order).toEqual([4, 9]);
+    expect(p[2]).toMatchObject({ x: 10, y: 20, tray: false });
+    expect(leaveTray(p, order, 2, 0, 0)).toBe(false);
+  });
+
+  it('收回散片：只收未鎖定的單片，整個托盤重新洗牌且不重複', () => {
+    const p = fresh();
+    p[0].locked = true;
+    p[5].group = p[6].group = 5;
+    const order = [9];
+    p[9].tray = true;
+    gatherToTray(p, order, 11);
+    expect(new Set(order).size).toBe(order.length);
+    expect(order).toHaveLength(12 - 1 - 2);
+    expect(order).not.toContain(0);
+    expect(order).not.toContain(5);
+    expect(order).not.toContain(6);
+    expect(looseSingles(p)).toEqual([]);
+    expect(inTray(p).sort((a, b) => a - b)).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('托盤內的拼片不會被拖到旁邊的拼片吸附，也不計入桌面範圍', () => {
+    const p = fresh();
+    const c0 = correctPos(L, 0);
+    p[0].x = c0.x + 400;
+    p[0].y = c0.y + 400;
+    p[1].tray = true;
+    p[1].x = p[0].x + L.pw; // 剛好在 0 的正確右鄰位置
+    p[1].y = p[0].y;
+    expect(dropGroup(p, L, 0).merged).toBe(false);
+    expect(p[1].group).toBe(1);
+    const all = p.map((q) => ({ ...q, tray: true }));
+    expect(tableBounds(all, L)).toEqual({ minX: 0, minY: 0, maxX: L.boardW, maxY: L.boardH });
+  });
+
+  it('整理來源不可信的托盤順序', () => {
+    const p = fresh();
+    p[2].locked = true;
+    p[4].group = p[5].group = 4;
+    expect(sanitizeTray([3, 3, 99, -1, 2, 4, 1.5, 'x', 6], p)).toEqual([3, 6]);
+    expect(sanitizeTray(undefined, p)).toEqual([]);
+    expect(sanitizeTray('abc', p)).toEqual([]);
+  });
+
+  it('存檔用的後備座標：托盤內的拼片被放到桌面外圍，原資料不被改動', () => {
+    const p = fresh();
+    const order = [0, 1, 2];
+    for (const i of order) Object.assign(p[i], { tray: true, x: 0, y: 0 });
+    const out = withTrayFallback(p, L, order, 5);
+    for (const i of order) {
+      const q = out[i];
+      const inside = q.x + L.pw > 0 && q.x < L.boardW && q.y + L.ph > 0 && q.y < L.boardH;
+      expect(inside).toBe(false);
+      expect(p[i]).toMatchObject({ x: 0, y: 0 });
+    }
+  });
+
+  it('托盤格子：排列、命中與空白處', () => {
+    const g = trayGeometry(L, 300, 7);
+    expect(g.cols).toBe(3);
+    expect(g.contentH).toBeCloseTo(3 * g.cellH + 2 * g.gap);
+    expect(trayCellAt(g, 7, 1, 1)).toBe(0);
+    expect(trayCellAt(g, 7, g.cellW + g.gap + 1, 1)).toBe(1);
+    expect(trayCellAt(g, 7, 1, g.cellH + g.gap + 1)).toBe(3);
+    expect(trayCellAt(g, 7, g.cellW + 1, 1)).toBe(-1); // 格子間的縫隙
+    expect(trayCellAt(g, 7, g.cellW * 2 + g.gap * 2 + 1, 2 * (g.cellH + g.gap) + 1)).toBe(-1); // 第 7 格之後沒有拼片
+    expect(trayCellAt(g, 7, -1, 5)).toBe(-1);
+    expect(trayGeometry(L, 150, 4).cols).toBe(2);
+    expect(trayGeometry(L, 150, 0).contentH).toBe(0);
+  });
+
+  describe('存檔', () => {
+    const base = (n: number) => ({
+      imageId: 'a',
+      difficultyId: 'b',
+      seed: 1,
+      elapsedMs: 0,
+      pieces: Array.from({ length: n }, (_, i) => [0, 0, i, 0]),
+      updatedAt: 0,
+    });
+
+    it('舊存檔沒有 tray 欄位也能讀；有的話保留整數索引', () => {
+      expect(toProgress(base(4))!.tray).toBeUndefined();
+      expect(toProgress({ ...base(4), tray: [2, 0, 1.5, 'x'] })!.tray).toEqual([2, 0]);
+      expect(toProgress({ ...base(4), tray: 'oops' })!.tray).toBeUndefined();
+    });
   });
 });

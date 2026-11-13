@@ -142,6 +142,8 @@ export interface PieceState {
   y: number;
   group: number;
   locked: boolean;
+  /** 在托盤裡（不在桌面上）。只存在於執行期；存檔另外記托盤的順序 */
+  tray?: boolean;
 }
 
 export interface Layout {
@@ -215,7 +217,7 @@ export function dropGroup(pieces: PieceState[], L: Layout, group: number): DropR
       if (row < L.rows - 1) neighbors.push([i + L.cols, 0, L.ph]);
       for (const [n, ex, ey] of neighbors) {
         const np = pieces[n];
-        if (np.group === group) continue;
+        if (np.group === group || np.tray) continue;
         const dx = np.x - (pieces[i].x + ex);
         const dy = np.y - (pieces[i].y + ey);
         if (Math.abs(dx) <= tol && Math.abs(dy) <= tol) {
@@ -256,23 +258,22 @@ export function dropGroup(pieces: PieceState[], L: Layout, group: number): DropR
 
 export const isComplete = (pieces: PieceState[]) => pieces.every((p) => p.locked);
 
+/** Fisher–Yates 洗牌（直接修改陣列） */
+function shuffleInPlace<T>(a: T[], r: () => number): T[] {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /**
  * 把散片隨機排列到拼盤四周的環狀區域（會直接修改 pieces）。
- * targets：要排列的拼片（通常為未鎖定的單片）。
- * innerFirst：符合條件的拼片優先排在內圈（例如邊框篩選時的邊緣片）。
+ * targets：要排列的拼片。
  */
-export function arrangeAround(pieces: PieceState[], L: Layout, targets: number[], seed: number, innerFirst?: (index: number) => boolean) {
+export function arrangeAround(pieces: PieceState[], L: Layout, targets: number[], seed: number) {
   const r = rng(seed);
-  const shuffle = (a: number[]) => {
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(r() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  };
-  const order = innerFirst
-    ? [...shuffle(targets.filter((i) => innerFirst(i))), ...shuffle(targets.filter((i) => !innerFirst(i)))]
-    : shuffle([...targets]);
+  const order = shuffleInPlace([...targets], r);
   const slotW = L.pw * 1.45;
   const slotH = L.ph * 1.45;
   const slots = ringSlots(L, slotW, slotH, order.length);
@@ -319,10 +320,130 @@ export function tableBounds(pieces: PieceState[], L: Layout) {
   let maxX = L.boardW;
   let maxY = L.boardH;
   for (const p of pieces) {
+    if (p.tray) continue;
     minX = Math.min(minX, p.x);
     minY = Math.min(minY, p.y);
     maxX = Math.max(maxX, p.x + L.pw);
     maxY = Math.max(maxY, p.y + L.ph);
   }
   return { minX, minY, maxX, maxY };
+}
+
+// ---------------------------------------------------------------------------
+// 托盤：像盒蓋一樣放散片。順序是隨機的，不會依顏色或特徵排序，分類要靠玩家自己拿出來。
+// 這些函式直接修改 pieces 與 order（托盤內拼片索引的順序）。
+
+/** 用種子產生 0..n-1 的隨機順序，作為托盤的初始順序 */
+export function shuffledOrder(n: number, seed: number): number[] {
+  return shuffleInPlace(
+    Array.from({ length: n }, (_, i) => i),
+    rng((seed ^ 0x9e3779b9) >>> 0),
+  );
+}
+
+function groupSizes(pieces: PieceState[]) {
+  const sizes = new Map<number, number>();
+  for (const p of pieces) sizes.set(p.group, (sizes.get(p.group) ?? 0) + 1);
+  return sizes;
+}
+
+/** 桌面上未鎖定、也沒有和別片合併的單片（可以放進托盤的拼片） */
+export function looseSingles(pieces: PieceState[]): number[] {
+  const sizes = groupSizes(pieces);
+  const out: number[] = [];
+  pieces.forEach((p, i) => {
+    if (!p.locked && !p.tray && sizes.get(p.group) === 1) out.push(i);
+  });
+  return out;
+}
+
+/** 整理來源不可信的托盤順序（存檔、匯入檔）：去掉重複、越界，以及已鎖定或已合併的拼片 */
+export function sanitizeTray(tray: unknown, pieces: PieceState[]): number[] {
+  if (!Array.isArray(tray)) return [];
+  const sizes = groupSizes(pieces);
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const v of tray) {
+    if (!Number.isInteger(v) || v < 0 || v >= pieces.length || seen.has(v)) continue;
+    const p = pieces[v];
+    if (p.locked || sizes.get(p.group) !== 1) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
+}
+
+/** 把一片單片放進托盤（接在最後）。已在托盤、已鎖定或已合併的拼片不處理，回傳 false。 */
+export function enterTray(pieces: PieceState[], order: number[], index: number): boolean {
+  const p = pieces[index];
+  if (!p || p.tray || p.locked || groupMembers(pieces, p.group).length !== 1) return false;
+  p.tray = true;
+  order.push(index);
+  return true;
+}
+
+/** 把一片從托盤拿出來，放到桌面上的 (x, y)（拼片左上角的世界座標） */
+export function leaveTray(pieces: PieceState[], order: number[], index: number, x: number, y: number): boolean {
+  const at = order.indexOf(index);
+  if (at < 0) return false;
+  order.splice(at, 1);
+  pieces[index].tray = false;
+  pieces[index].x = x;
+  pieces[index].y = y;
+  return true;
+}
+
+/** 把桌面上的散片全部收回托盤，整個托盤重新洗牌 */
+export function gatherToTray(pieces: PieceState[], order: number[], seed: number) {
+  for (const i of looseSingles(pieces)) {
+    pieces[i].tray = true;
+    order.push(i);
+  }
+  shuffleInPlace(order, rng(seed));
+}
+
+/**
+ * 回傳一份拼片副本，托盤內的拼片放在拼盤外圍的環上。
+ * 存檔時用：托盤只是新版的概念，舊版或托盤資料損毀時，這些拼片仍會落在桌面上，不會消失。
+ */
+export function withTrayFallback(pieces: PieceState[], L: Layout, order: number[], seed: number): PieceState[] {
+  const copy = pieces.map((p) => ({ ...p }));
+  arrangeAround(copy, L, order, seed);
+  return copy;
+}
+
+/** 拼片的繪製留白（卡榫凸出的部分） */
+export const piecePad = (L: Layout) => TAB_EXTENT * Math.min(L.pw, L.ph) + 4;
+
+export interface TrayGeometry {
+  cols: number;
+  cellW: number;
+  cellH: number;
+  gap: number;
+  /** 拼片在托盤中的縮放（世界單位 → 螢幕 px） */
+  scale: number;
+  contentH: number;
+}
+
+/** 托盤的格子排列：innerW 是可用寬度（px），拼片含卡榫留白各佔一格 */
+export function trayGeometry(L: Layout, innerW: number, count: number): TrayGeometry {
+  const pad = piecePad(L);
+  const cols = innerW >= 240 ? 3 : 2;
+  const gap = 6;
+  const cellW = (innerW - (cols - 1) * gap) / cols;
+  const scale = cellW / (L.pw + 2 * pad);
+  const cellH = (L.ph + 2 * pad) * scale;
+  const rows = Math.ceil(count / cols);
+  return { cols, cellW, cellH, gap, scale, contentH: rows > 0 ? rows * cellH + (rows - 1) * gap : 0 };
+}
+
+/** 內容座標（相對於托盤內容左上角）落在第幾格；不在任何格子上回傳 -1 */
+export function trayCellAt(g: TrayGeometry, count: number, x: number, y: number): number {
+  if (x < 0 || y < 0) return -1;
+  const col = Math.floor(x / (g.cellW + g.gap));
+  const row = Math.floor(y / (g.cellH + g.gap));
+  if (col >= g.cols) return -1;
+  if (x - col * (g.cellW + g.gap) > g.cellW || y - row * (g.cellH + g.gap) > g.cellH) return -1;
+  const k = row * g.cols + col;
+  return k < count ? k : -1;
 }

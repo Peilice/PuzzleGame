@@ -1,5 +1,5 @@
 // 一鍵執行端對端測試：自動啟動 dev server 與建置後的 preview，依序執行各腳本。
-// 用法：npm run e2e              全部（smoke、pan、hint、extra、storage）
+// 用法：npm run e2e              全部（smoke、tray、pan、hint、extra、storage）
 //       npm run e2e -- pan hint   只跑指定的腳本
 //       npm run e2e -- perf       效能量測
 import { spawn } from 'node:child_process';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { build, createServer, preview } from 'vite';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT = ['smoke', 'pan', 'hint', 'extra', 'storage'];
+const DEFAULT = ['smoke', 'tray', 'pan', 'hint', 'extra', 'storage'];
 const names = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT;
 
 const dev = await createServer({ server: { port: 5199 }, logLevel: 'error' });

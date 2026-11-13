@@ -1,17 +1,24 @@
 // Canvas 拼圖遊戲：繪製、拖曳、縮放平移、吸附與完成判定。
 import {
-  TAB_EXTENT,
-  arrangeAround,
   correctPos,
   dropGroup,
+  enterTray,
+  gatherToTray,
   generateEdges,
   isComplete,
   isEdgePiece,
+  leaveTray,
   makeLayout,
   moveGroup,
   newPieces,
+  piecePad,
+  sanitizeTray,
+  shuffledOrder,
   tableBounds,
+  trayCellAt,
+  trayGeometry,
   tracePiece,
+  withTrayFallback,
   type Layout,
   type PieceEdges,
   type PieceState,
@@ -27,11 +34,16 @@ export interface GameOptions {
   cols: number;
   rows: number;
   progress: GameProgress | null;
+  /** 新局的拼片放在托盤；續玩舊進度時以進度為準 */
+  startInTray: boolean;
   onComplete: (elapsedMs: number) => void;
   onChange: () => void;
 }
 
 type Sprite = HTMLCanvasElement | OffscreenCanvas;
+
+/** 托盤內容與邊緣的留白（CSS px） */
+const TRAY_MARGIN = 8;
 
 export class PuzzleGame {
   readonly L: Layout;
@@ -48,6 +60,18 @@ export class PuzzleGame {
   private groupCache: Map<number, number[]> | null = null;
   /** 含有邊緣片的組（邊框篩選用）的快取，與 groupCache 一起失效 */
   private edgeGroups: Set<number> | null = null;
+  /** 托盤內的拼片索引，依托盤順序 */
+  private readonly trayOrder: number[];
+  private trayOpen: boolean;
+  private trayScroll = 0;
+  /** 托盤內容區的上緣（在 HUD 下方，CSS px） */
+  private trayTop = 56;
+  /** 套用邊框篩選後實際顯示的托盤清單；托盤或篩選改變時清掉重建 */
+  private trayListCache: number[] | null = null;
+  /** 拖曳中的單片正在托盤上方（放開就會放進托盤） */
+  private trayHot = false;
+  /** 在托盤上按下、尚未決定是捲動還是拿起拼片 */
+  private trayPress: { pointerId: number; piece: number; sx: number; sy: number; scroll0: number; scrolling: boolean } | null = null;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly hitCtx: CanvasRenderingContext2D;
   private cam = { s: 1, tx: 0, ty: 0 };
@@ -55,7 +79,7 @@ export class PuzzleGame {
   private dirty = true;
   private raf = 0;
   private pointers = new Map<number, { x: number; y: number }>();
-  private drag: { group: number; wx: number; wy: number; pointerId: number } | null = null;
+  private drag: { group: number; wx: number; wy: number; pointerId: number; px: number; py: number } | null = null;
   private pan: { x: number; y: number; pointerId: number } | null = null;
   private pinch: { dist: number; mx: number; my: number } | null = null;
   private elapsedBase: number;
@@ -72,9 +96,12 @@ export class PuzzleGame {
     this.pieces = prog
       ? prog.pieces.map(([x, y, group, locked]) => ({ x, y, group, locked: locked === 1 }))
       : newPieces(this.L, this.seed);
+    this.trayOrder = prog ? sanitizeTray(prog.tray, this.pieces) : o.startInTray ? shuffledOrder(this.pieces.length, this.seed) : [];
+    for (const i of this.trayOrder) this.pieces[i].tray = true;
+    this.trayOpen = this.trayOrder.length > 0;
     this.elapsedBase = prog ? prog.elapsedMs : 0;
     this.isEdge = this.pieces.map((_, i) => isEdgePiece(i, o.cols, o.rows));
-    this.pad = TAB_EXTENT * Math.min(this.L.pw, this.L.ph) + 4;
+    this.pad = piecePad(this.L);
     this.rebuildZOrder();
 
     const ctx = o.canvas.getContext('2d');
@@ -125,12 +152,15 @@ export class PuzzleGame {
   // ---------------------------------------------------------------- 進度
 
   serialize(): GameProgress {
+    // 托盤內的拼片另外存順序；座標先放到桌面外圍，舊版或托盤資料損毀時才不會讓拼片消失
+    const pieces = this.trayOrder.length ? withTrayFallback(this.pieces, this.L, this.trayOrder, this.seed) : this.pieces;
     return {
       imageId: this.o.imageId,
       difficultyId: this.o.difficultyId,
       seed: this.seed,
       elapsedMs: Math.round(this.elapsedMs),
-      pieces: this.pieces.map((p) => [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, p.group, p.locked ? 1 : 0]),
+      pieces: pieces.map((p) => [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, p.group, p.locked ? 1 : 0]),
+      ...(this.trayOrder.length ? { tray: [...this.trayOrder] } : {}),
       updatedAt: Date.now(),
     };
   }
@@ -237,6 +267,7 @@ export class PuzzleGame {
       c.width = w;
       c.height = h;
     }
+    this.layoutTray();
     this.dirty = true;
   }
 
@@ -244,7 +275,7 @@ export class PuzzleGame {
     const c = this.o.canvas;
     const b = tableBounds(this.pieces, this.L);
     const margin = 40;
-    const vw = c.clientWidth || 800;
+    const vw = (c.clientWidth || 800) - this.trayInset();
     const vh = c.clientHeight || 600;
     const s = Math.min((vw - margin * 2) / (b.maxX - b.minX), (vh - margin * 2) / (b.maxY - b.minY));
     this.cam.s = s;
@@ -284,7 +315,7 @@ export class PuzzleGame {
 
   setEdgeOnly(v: boolean) {
     this.edgeOnly = v;
-    this.dirty = true;
+    this.invalidateTray();
   }
 
   private isHidden(i: number) {
@@ -296,15 +327,135 @@ export class PuzzleGame {
     return !this.edgeGroups.has(this.pieces[i].group);
   }
 
-  /** 整理散片：把未鎖定的單片重新排到拼盤四周（邊框篩選時邊緣片排在內圈） */
-  arrange() {
-    const loose: number[] = [];
-    for (const members of this.membersByGroup().values()) {
-      if (members.length === 1 && !this.pieces[members[0]].locked) loose.push(members[0]);
-    }
-    arrangeAround(this.pieces, this.L, loose, Date.now() & 0xffffff, this.edgeOnly ? (i) => this.isEdge[i] : undefined);
+  /** 收回散片：把桌面上未鎖定的單片全部放回托盤，整個托盤重新洗牌 */
+  gather() {
+    gatherToTray(this.pieces, this.trayOrder, Date.now() & 0xffffff);
+    this.trayScroll = 0;
+    this.invalidateTray();
+    this.setTrayOpen(true);
     this.resetView();
     this.o.onChange();
+  }
+
+  // ---------------------------------------------------------------- 托盤
+
+  get trayCount() {
+    return this.trayOrder.length;
+  }
+
+  get isTrayOpen() {
+    return this.trayOpen;
+  }
+
+  setTrayOpen(v: boolean) {
+    this.trayOpen = v;
+    this.trayHot = false;
+    this.layoutTray();
+    this.dirty = true;
+  }
+
+  /** 托盤寬度（CSS px）：畫面寬的 26%，限制在 170–320 之間 */
+  private trayWidth() {
+    return Math.round(Math.min(320, Math.max(170, this.o.canvas.clientWidth * 0.26)));
+  }
+
+  /** 托盤佔掉的畫面寬度；收合時為 0 */
+  private trayInset() {
+    return this.trayOpen ? this.trayWidth() : 0;
+  }
+
+  /** 托盤在畫面上的範圍；收合時為 null */
+  private trayRect() {
+    if (!this.trayOpen) return null;
+    const w = this.trayWidth();
+    const c = this.o.canvas;
+    return { x: c.clientWidth - w, w, h: c.clientHeight };
+  }
+
+  /** 通知頁面其他元素（預覽圖）避開托盤，並量出托盤內容區的上緣（HUD 下方） */
+  private layoutTray() {
+    const c = this.o.canvas;
+    const host = c.parentElement;
+    host?.style.setProperty('--tray-w', `${this.trayInset()}px`);
+    const hud = host?.querySelector('.hud');
+    this.trayTop = hud ? Math.max(0, hud.getBoundingClientRect().bottom - c.getBoundingClientRect().top) + 6 : 56;
+    this.clampTrayScroll();
+  }
+
+  private trayList() {
+    return (this.trayListCache ??= this.edgeOnly ? this.trayOrder.filter((i) => this.isEdge[i]) : this.trayOrder.slice());
+  }
+
+  private trayGeom() {
+    return trayGeometry(this.L, this.trayWidth() - TRAY_MARGIN * 2, this.trayList().length);
+  }
+
+  private invalidateTray() {
+    this.trayListCache = null;
+    this.clampTrayScroll();
+    this.dirty = true;
+  }
+
+  private clampTrayScroll() {
+    const viewH = this.o.canvas.clientHeight - this.trayTop - TRAY_MARGIN;
+    this.trayScroll = Math.max(0, Math.min(this.trayScroll, this.trayGeom().contentH - viewH));
+  }
+
+  private inTray(pt: { x: number; y: number }) {
+    const r = this.trayRect();
+    return !!r && pt.x >= r.x;
+  }
+
+  /** 螢幕座標指到的托盤拼片索引；沒有指到回傳 -1 */
+  private trayPieceAt(pt: { x: number; y: number }) {
+    const r = this.trayRect();
+    if (!r || pt.y < this.trayTop) return -1;
+    const list = this.trayList();
+    const k = trayCellAt(this.trayGeom(), list.length, pt.x - r.x - TRAY_MARGIN, pt.y - this.trayTop + this.trayScroll);
+    return k < 0 ? -1 : list[k];
+  }
+
+  /** 把托盤裡的拼片拿到桌面上（以指標位置為拼片中心）並開始拖曳 */
+  private pickFromTray(index: number, pt: { x: number; y: number }, pointerId: number) {
+    const w = this.toWorld(pt.x, pt.y);
+    if (!leaveTray(this.pieces, this.trayOrder, index, w.x - this.L.pw / 2, w.y - this.L.ph / 2)) return;
+    const group = this.pieces[index].group;
+    this.drag = { group, wx: w.x, wy: w.y, pointerId, px: pt.x, py: pt.y };
+    this.trayHot = this.inTray(pt);
+    this.invalidateTray();
+    this.bringToFront(group);
+    this.start();
+    sfx.pick();
+    this.o.onChange();
+  }
+
+  /** 一組拼片放在托盤上方放不進去（多片相連）時，推到托盤左邊，避免被托盤蓋住 */
+  private nudgeLeftOfTray(group: number) {
+    const r = this.trayRect();
+    if (!r) return;
+    const limit = this.toWorld(r.x - 8, 0).x;
+    let right = -Infinity;
+    for (const i of this.membersByGroup().get(group) ?? []) right = Math.max(right, this.pieces[i].x + this.L.pw);
+    if (right > limit) moveGroup(this.pieces, group, limit - right, 0);
+  }
+
+  /** 托盤上拖曳：滑鼠按住拼片往任何方向都是拿起；觸控往桌面（左）拖才拿起，上下滑動是捲動 */
+  private moveTrayPress(tp: NonNullable<PuzzleGame['trayPress']>, pt: { x: number; y: number }, pointerType: string) {
+    const dx = pt.x - tp.sx;
+    const dy = pt.y - tp.sy;
+    if (!tp.scrolling) {
+      if (Math.hypot(dx, dy) < 8) return;
+      const leftward = dx < 0 && Math.abs(dx) > Math.abs(dy);
+      if (tp.piece >= 0 && (pointerType !== 'touch' || leftward)) {
+        this.trayPress = null;
+        this.pickFromTray(tp.piece, pt, tp.pointerId);
+        return;
+      }
+      tp.scrolling = true;
+    }
+    this.trayScroll = tp.scroll0 - dy;
+    this.clampTrayScroll();
+    this.dirty = true;
   }
 
   // ---------------------------------------------------------------- 事件
@@ -331,7 +482,7 @@ export class PuzzleGame {
     for (let z = this.zOrder.length - 1; z >= 0; z--) {
       for (const i of byGroup.get(this.zOrder[z]) ?? []) {
         const p = this.pieces[i];
-        if (this.isHidden(i)) continue;
+        if (p.tray || this.isHidden(i)) continue;
         const lx = wx - p.x;
         const ly = wy - p.y;
         if (lx < -this.pad || ly < -this.pad || lx > this.L.pw + this.pad || ly > this.L.ph + this.pad) continue;
@@ -350,6 +501,7 @@ export class PuzzleGame {
       // 雙指：取消拖曳 / 平移，改為縮放。拼片留在原地、不做吸附，避免手勢中途誤合併
       if (this.drag) this.finishDrag(false);
       this.pan = null;
+      this.trayPress = null;
       const [a, b] = [...this.pointers.values()];
       this.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
       return;
@@ -360,11 +512,15 @@ export class PuzzleGame {
       this.updateCursor(e);
       return;
     }
+    if (this.inTray(pt)) {
+      this.trayPress = { pointerId: e.pointerId, piece: this.trayPieceAt(pt), sx: pt.x, sy: pt.y, scroll0: this.trayScroll, scrolling: false };
+      return;
+    }
     const w = this.toWorld(pt.x, pt.y);
     const hit = this.hitTest(w.x, w.y);
     if (hit !== null && !this.pieces[hit].locked) {
       const g = this.pieces[hit].group;
-      this.drag = { group: g, wx: w.x, wy: w.y, pointerId: e.pointerId };
+      this.drag = { group: g, wx: w.x, wy: w.y, pointerId: e.pointerId, px: pt.x, py: pt.y };
       this.bringToFront(g);
       this.start();
       sfx.pick();
@@ -383,9 +539,13 @@ export class PuzzleGame {
     else if (this.pan) cursor = 'move';
     else if (!this.finished) {
       const pt = this.local(e);
-      const w = this.toWorld(pt.x, pt.y);
-      const hit = this.hitTest(w.x, w.y);
-      if (hit !== null && !this.pieces[hit].locked) cursor = 'grab';
+      if (this.inTray(pt)) {
+        if (this.trayPieceAt(pt) >= 0) cursor = 'grab';
+      } else {
+        const w = this.toWorld(pt.x, pt.y);
+        const hit = this.hitTest(w.x, w.y);
+        if (hit !== null && !this.pieces[hit].locked) cursor = 'grab';
+      }
     }
     const c = this.o.canvas;
     if (c.style.cursor !== cursor) c.style.cursor = cursor;
@@ -410,11 +570,19 @@ export class PuzzleGame {
       this.dirty = true;
       return;
     }
+    const tp = this.trayPress;
+    if (tp && tp.pointerId === e.pointerId) {
+      this.moveTrayPress(tp, pt, e.pointerType);
+      return;
+    }
     if (this.drag && this.drag.pointerId === e.pointerId) {
       const w = this.toWorld(pt.x, pt.y);
       moveGroup(this.pieces, this.drag.group, w.x - this.drag.wx, w.y - this.drag.wy);
       this.drag.wx = w.x;
       this.drag.wy = w.y;
+      this.drag.px = pt.x;
+      this.drag.py = pt.y;
+      this.trayHot = this.inTray(pt) && this.membersByGroup().get(this.drag.group)?.length === 1;
       this.dirty = true;
     } else if (this.pan && this.pan.pointerId === e.pointerId) {
       this.cam.tx += pt.x - this.pan.x;
@@ -427,6 +595,7 @@ export class PuzzleGame {
 
   private onUp = (e: PointerEvent) => {
     this.pointers.delete(e.pointerId);
+    if (this.trayPress?.pointerId === e.pointerId) this.trayPress = null;
     if (this.drag && this.drag.pointerId === e.pointerId) this.finishDrag();
     if (this.pan && this.pan.pointerId === e.pointerId) this.pan = null;
     if (this.pointers.size < 2) this.pinch = null;
@@ -436,12 +605,24 @@ export class PuzzleGame {
   /** 結束拖曳。snap 為 false 時只把拼片留在原地，不檢查吸附 / 鎖定。 */
   private finishDrag(snap = true) {
     if (!this.drag) return;
-    const group = this.drag.group;
+    const { group, px, py } = this.drag;
     this.drag = null;
+    this.trayHot = false;
     this.dirty = true;
     if (!snap) {
       this.o.onChange();
       return;
+    }
+    if (this.inTray({ x: px, y: py })) {
+      // 單片放在托盤上 = 放回托盤；相連的多片放不進去，推到托盤旁邊再照常判定吸附
+      const members = this.membersByGroup().get(group) ?? [];
+      if (members.length === 1 && enterTray(this.pieces, this.trayOrder, members[0])) {
+        this.invalidateTray();
+        sfx.snap();
+        this.o.onChange();
+        return;
+      }
+      this.nudgeLeftOfTray(group);
     }
     const r = dropGroup(this.pieces, this.L, group);
     if (r.merged || r.locked) this.invalidateGroups();
@@ -466,6 +647,12 @@ export class PuzzleGame {
     e.preventDefault();
     const pt = this.local(e);
     const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    if (this.inTray(pt)) {
+      this.trayScroll += delta;
+      this.clampTrayScroll();
+      this.dirty = true;
+      return;
+    }
     this.zoomAt(pt.x, pt.y, Math.exp(-delta * 0.0015));
   };
 
@@ -481,7 +668,7 @@ export class PuzzleGame {
   };
 
   private draw() {
-    const { ctx, cam, L, pad } = this;
+    const { ctx, cam, L } = this;
     const c = this.o.canvas;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
@@ -497,19 +684,61 @@ export class PuzzleGame {
     // 可視範圍（世界座標）用於略過畫面外的拼片
     const v0 = this.toWorld(0, 0);
     const v1 = this.toWorld(c.clientWidth, c.clientHeight);
-    const byGroup = this.membersByGroup();
+    const dragged = this.drag?.group;
+    for (const g of this.zOrder) if (g !== dragged) this.drawGroup(g, v0, v1);
+
+    // 托盤蓋在桌面上；拖曳中的拼片畫在托盤之上，這樣才看得到它被拖進托盤
+    this.drawTray();
+    if (dragged !== undefined) {
+      ctx.setTransform(cam.s * this.dpr, 0, 0, cam.s * this.dpr, cam.tx * this.dpr, cam.ty * this.dpr);
+      this.drawGroup(dragged, v0, v1);
+    }
+  }
+
+  private drawGroup(group: number, v0: { x: number; y: number }, v1: { x: number; y: number }) {
+    const { ctx, L, pad } = this;
     const dw = L.pw + pad * 2;
     const dh = L.ph + pad * 2;
-    for (const g of this.zOrder) {
-      const members = byGroup.get(g);
-      if (!members) continue;
-      for (const i of members) {
-        if (this.isHidden(i)) continue;
-        const p = this.pieces[i];
-        if (p.x + L.pw + pad < v0.x || p.y + L.ph + pad < v0.y || p.x - pad > v1.x || p.y - pad > v1.y) continue;
-        ctx.drawImage(this.sprites[i], p.x - pad, p.y - pad, dw, dh);
-      }
+    for (const i of this.membersByGroup().get(group) ?? []) {
+      const p = this.pieces[i];
+      if (p.tray || this.isHidden(i)) continue;
+      if (p.x + L.pw + pad < v0.x || p.y + L.ph + pad < v0.y || p.x - pad > v1.x || p.y - pad > v1.y) continue;
+      ctx.drawImage(this.sprites[i], p.x - pad, p.y - pad, dw, dh);
     }
+  }
+
+  private drawTray() {
+    const r = this.trayRect();
+    if (!r) return;
+    const { ctx } = this;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.fillStyle = this.trayHot ? 'rgba(74, 46, 18, 0.93)' : 'rgba(30, 18, 8, 0.86)';
+    ctx.fillRect(r.x, 0, r.w, r.h);
+    ctx.fillStyle = this.trayHot ? '#ffb74d' : 'rgba(255, 255, 255, 0.18)';
+    ctx.fillRect(r.x, 0, this.trayHot ? 3 : 1.5, r.h);
+
+    const list = this.trayList();
+    const g = this.trayGeom();
+    const viewH = r.h - this.trayTop;
+    const step = g.cellH + g.gap;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(r.x, this.trayTop, r.w, viewH);
+    ctx.clip();
+    const first = Math.max(0, Math.floor(this.trayScroll / step)) * g.cols;
+    const end = Math.min(list.length, Math.ceil((this.trayScroll + viewH) / step) * g.cols);
+    for (let k = first; k < end; k++) {
+      const x = r.x + TRAY_MARGIN + (k % g.cols) * (g.cellW + g.gap);
+      const y = this.trayTop + Math.floor(k / g.cols) * step - this.trayScroll;
+      ctx.drawImage(this.sprites[list[k]], x, y, g.cellW, g.cellH);
+    }
+    if (g.contentH > viewH) {
+      const h = Math.max(24, (viewH * viewH) / g.contentH);
+      const y = this.trayTop + (viewH - h) * (this.trayScroll / (g.contentH - viewH));
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fillRect(r.x + r.w - 4, y, 2.5, h);
+    }
+    ctx.restore();
   }
 
   destroy() {

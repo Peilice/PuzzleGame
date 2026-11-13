@@ -47,9 +47,9 @@ await drag(page, t2.from, t2.to);
 checks.neighborSnaps = await page.evaluate(() => window.__game.pieces[1].locked);
 await shot('06-after-drag');
 
-// 邊框篩選 + 整理：已鎖定的拼片不動，散片仍在拼盤外
+// 邊框篩選 + 收回托盤：已鎖定的拼片不動，其餘散片收進托盤
 await page.click('.edge-btn');
-await page.click('.arrange-btn');
+await page.click('.gather-btn');
 await sleep(300);
 await shot('07-edge-arranged');
 checks.arrangeKeepsLocked = await page.evaluate(() => {
@@ -68,13 +68,23 @@ const last = await page.evaluate(() => {
   const at = (i) => ({ x: (i % g.L.cols) * g.L.pw, y: Math.floor(i / g.L.cols) * g.L.ph });
   g.pieces.forEach((p, i) => {
     if (i === n - 1) return;
-    Object.assign(p, at(i), { locked: true, group: 0 });
+    Object.assign(p, at(i), { locked: true, group: 0, tray: false });
   });
+  // 只留最後一片在托盤裡，用滑鼠從托盤拖到正確位置
+  g.trayOrder.length = 0;
+  g.trayOrder.push(n - 1);
+  g.pieces[n - 1].tray = true;
   g.invalidateGroups();
+  g.invalidateTray();
+  g.setTrayOpen(true);
   g.resetView();
-  const p = g.pieces[n - 1];
+  const r = g.trayRect();
+  const geo = g.trayGeom();
   const c = at(n - 1);
-  return { from: g.toScreen(p.x + g.L.pw / 2, p.y + g.L.ph / 2), to: g.toScreen(c.x + g.L.pw / 2 + 2, c.y + g.L.ph / 2 - 2) };
+  return {
+    from: { x: r.x + 8 + geo.cellW / 2, y: g.trayTop + geo.cellH / 2 },
+    to: g.toScreen(c.x + g.L.pw / 2 + 2, c.y + g.L.ph / 2 - 2),
+  };
 });
 await drag(page, last.from, last.to);
 await page.waitForSelector('.overlay.result', { timeout: 5000 });

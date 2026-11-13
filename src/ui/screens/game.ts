@@ -19,7 +19,8 @@ const ICONS = {
   back: '<path d="M15 5l-7 7 7 7"/>',
   preview: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/>',
   edge: '<rect x="4" y="4" width="16" height="16" rx="1"/><rect x="9" y="9" width="6" height="6" stroke-dasharray="2 2"/>',
-  arrange: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  tray: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  gather: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
   fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   minus: '<circle cx="11" cy="11" r="7"/><path d="M8 11h6M16 16l5 5"/>',
   plus: '<circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M16 16l5 5"/>',
@@ -40,7 +41,8 @@ function gameMarkup(img: PuzzleImage) {
         <div class="tools">
           <button class="tool preview-btn" aria-pressed="false">${icon('preview')}<span>${S.preview}</span></button>
           <button class="tool edge-btn" aria-pressed="false">${icon('edge')}<span>${S.edgeOnly}</span></button>
-          <button class="tool arrange-btn">${icon('arrange')}<span>${S.arrange}</span></button>
+          <button class="tool tray-btn" aria-pressed="false">${icon('tray')}<span>${S.tray}</span><b class="badge hidden"></b></button>
+          <button class="tool gather-btn">${icon('gather')}<span>${S.gather}</span></button>
           <button class="tool fit-btn">${icon('fit')}<span>${S.resetView}</span></button>
           <button class="tool zoom-out">${icon('minus')}<span>${S.zoomOut}</span></button>
           <button class="tool zoom-in">${icon('plus')}<span>${S.zoomIn}</span></button>
@@ -118,6 +120,7 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
       cols: diff.cols,
       rows: diff.rows,
       progress: progress ?? null,
+      startInTray: store.save.settings.startInTray,
       onChange: () => {
         updateCount();
         autosave.schedule();
@@ -136,7 +139,14 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
   const total = pieceCount(diff);
   const timerEl = q('.timer');
   const countEl = q('.count');
-  const updateCount = () => (countEl.textContent = `${game.lockedCount} / ${total}`);
+  const trayBtn = q('.tray-btn');
+  const trayBadge = q('.tray-btn .badge');
+  const updateCount = () => {
+    countEl.textContent = `${game.lockedCount} / ${total}`;
+    trayBadge.textContent = String(game.trayCount);
+    trayBadge.classList.toggle('hidden', game.trayCount === 0);
+    trayBtn.setAttribute('aria-pressed', String(game.isTrayOpen));
+  };
   updateCount();
   const tick = window.setInterval(() => (timerEl.textContent = formatTime(game.elapsedMs)), 250);
   q('.loading').remove();
@@ -190,7 +200,7 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
     game.destroy();
   });
 
-  bindTools(node, game);
+  bindTools(node, game, updateCount);
 
   // ---- 完成
   async function finish(ms: number) {
@@ -211,8 +221,8 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
   }
 }
 
-/** 工具列：預覽、邊框篩選、整理、視角、操作提示。 */
-function bindTools(node: HTMLElement, game: PuzzleGame) {
+/** 工具列：預覽、邊框篩選、托盤、視角、操作提示。 */
+function bindTools(node: HTMLElement, game: PuzzleGame, updateCount: () => void) {
   const q = <T extends HTMLElement = HTMLElement>(sel: string) => node.querySelector<T>(sel)!;
 
   const previewImg = q('.preview');
@@ -230,7 +240,11 @@ function bindTools(node: HTMLElement, game: PuzzleGame) {
     edgeBtn.setAttribute('aria-pressed', String(game.isEdgeOnly));
   });
 
-  q('.arrange-btn').addEventListener('click', () => game.arrange());
+  q('.tray-btn').addEventListener('click', () => {
+    game.setTrayOpen(!game.isTrayOpen);
+    updateCount();
+  });
+  q('.gather-btn').addEventListener('click', () => game.gather());
   q('.fit-btn').addEventListener('click', () => game.resetView());
   q('.zoom-in').addEventListener('click', () => game.zoomBy(1.3));
   q('.zoom-out').addEventListener('click', () => game.zoomBy(1 / 1.3));

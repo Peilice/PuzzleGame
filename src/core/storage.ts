@@ -17,6 +17,8 @@ export interface GameProgress {
   elapsedMs: number;
   /** 每片 [x, y, group, locked(0/1)] */
   pieces: [number, number, number, number][];
+  /** 托盤內的拼片索引（依托盤順序）；沒有這個欄位表示托盤是空的（舊存檔） */
+  tray?: number[];
   updatedAt: number;
 }
 
@@ -39,7 +41,10 @@ export function toProgress(v: unknown): GameProgress | null {
       (p[3] === 0 || p[3] === 1),
   );
   if (!ok) return null;
-  return { imageId, difficultyId, seed, elapsedMs, pieces: pieces as GameProgress['pieces'], updatedAt: isNum(updatedAt) ? updatedAt : 0 };
+  const out: GameProgress = { imageId, difficultyId, seed, elapsedMs, pieces: pieces as GameProgress['pieces'], updatedAt: isNum(updatedAt) ? updatedAt : 0 };
+  // 托盤順序只確認型別；去重、越界與是否仍是單片，由遊戲載入時的 sanitizeTray 處理
+  if (Array.isArray(v.tray)) out.tray = v.tray.filter((i): i is number => Number.isInteger(i));
+  return out;
 }
 
 // ---------------------------------------------------------------------------

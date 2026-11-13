@@ -19,6 +19,8 @@ export interface Settings {
   table: string;
   /** 遊戲畫面是否顯示操作提示 */
   showHints: boolean;
+  /** 新局的拼片放在托盤（true）或散在桌面上（false） */
+  startInTray: boolean;
 }
 
 export interface SaveData {
@@ -59,7 +61,7 @@ export function createSave(now = Date.now()): SaveData {
     best: {},
     unlockedTitles: { [INITIAL_TITLE]: now },
     totalPlayMs: 0,
-    settings: { sound: true, table: 'oak', showHints: true },
+    settings: { sound: true, table: 'oak', showHints: true, startInTray: true },
   };
 }
 
@@ -117,6 +119,7 @@ export function migrate(raw: unknown): SaveData {
       sound: pick(settings.sound, isBool, base.settings.sound),
       table: pick(settings.table, isStr, base.settings.table),
       showHints: pick(settings.showHints, isBool, base.settings.showHints),
+      startInTray: pick(settings.startInTray, isBool, base.settings.startInTray),
     },
   };
 }

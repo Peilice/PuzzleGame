@@ -25,6 +25,9 @@ export function showSettings() {
         <div class="row"><button class="btn toggle sound-on ${settings.sound ? 'active' : ''}">${S.on}</button><button class="btn toggle sound-off ${settings.sound ? '' : 'active'}">${S.off}</button></div>
       </section>
       <section class="panel-card"><h2>${S.tableColor}</h2><div class="swatches">${colors}</div></section>
+      <section class="panel-card"><h2>${S.startPlace}</h2>
+        <div class="row"><button class="btn toggle place-tray ${settings.startInTray ? 'active' : ''}">${S.placeTray}</button><button class="btn toggle place-table ${settings.startInTray ? '' : 'active'}">${S.placeTable}</button></div>
+      </section>
       <section class="panel-card"><h2>${S.saveData}</h2><p class="muted">${S.exportHint}</p>
         <div class="row"><button class="btn export">${S.exportSave}</button><button class="btn import">${S.importSave}</button></div>
         <input type="file" accept="application/json,.json" class="hidden file">
@@ -42,6 +45,8 @@ export function showSettings() {
   };
   node.querySelector('.sound-on')!.addEventListener('click', () => void update(() => (settings.sound = true)));
   node.querySelector('.sound-off')!.addEventListener('click', () => void update(() => (settings.sound = false)));
+  node.querySelector('.place-tray')!.addEventListener('click', () => void update(() => (settings.startInTray = true)));
+  node.querySelector('.place-table')!.addEventListener('click', () => void update(() => (settings.startInTray = false)));
   node.querySelectorAll<HTMLButtonElement>('.swatch').forEach((b) => b.addEventListener('click', () => void update(() => (settings.table = b.dataset.id!))));
 
   node.querySelector('.export')!.addEventListener('click', () => void exportSave());

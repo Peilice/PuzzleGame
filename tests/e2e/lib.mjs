@@ -44,10 +44,18 @@ export async function newPage(browser, viewport = { width: 1280, height: 800 }) 
 /**
  * 從主畫面一路點進遊戲並等到可以操作。
  * image：第幾張圖（從 0 起算）；difficulty：第幾個難度，-1 為最後一個；已有進度時會續玩。
+ * inTray：新局的拼片放在托盤（遊戲預設）；測試預設為 false（散在桌面），因為多數測試是從桌面座標拖拼片。
  */
-export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0 } = {}) {
+export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0, inTray = false } = {}) {
   await page.goto(url, { waitUntil: 'networkidle0' });
   await page.evaluate(() => (window.__game = undefined));
+  const place = inTray ? '.place-tray' : '.place-table';
+  await page.click('.settings');
+  await page.waitForSelector(place);
+  await page.click(place);
+  await page.waitForSelector(place + '.active');
+  await page.click('.back');
+  await page.waitForSelector('.play');
   await page.click('.play');
   await page.waitForSelector('.cat-card');
   await page.click('.cat-card');
