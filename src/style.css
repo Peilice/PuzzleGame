@@ -740,12 +740,56 @@ h3 {
   right: calc(12px + var(--tray-w, 0px) + env(safe-area-inset-right));
   /* --tray-h：平板、電腦的托盤在下方，預覽圖往上讓開 */
   bottom: calc(12px + var(--tray-h, 0px) + env(safe-area-inset-bottom));
+  /* 手機（短邊小）預設縮小；使用者拖曳或縮放後，位置與大小改由 game.ts 以 inline style 記住 */
   width: min(30vw, 340px);
   border-radius: 2px;
   border: 6px solid #ece6d8;
   outline: 4px solid #2a2118;
   box-shadow: var(--shadow);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+  z-index: 5;
+}
+.preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+.preview-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 2px;
+  background: rgba(14, 14, 14, 0.7);
+  color: #ececec;
+  display: grid;
+  place-items: center;
   cursor: pointer;
+}
+.preview-close .ic {
+  width: 16px;
+  height: 16px;
+}
+.preview-resize {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 32px;
+  height: 32px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, #ece6d8 50%, #ece6d8 58%, transparent 58%, transparent 70%, #ece6d8 70%, #ece6d8 78%, transparent 78%);
+  outline: 0;
+  border-radius: 0 0 2px 0;
+}
+@media (max-width: 760px), (max-height: 480px) {
+  .preview {
+    width: min(22vw, 160px);
+  }
 }
 
 /* 操作提示：左下角（右下角留給預覽圖），依輸入裝置顯示滑鼠或觸控的說明 */

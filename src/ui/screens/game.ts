@@ -55,7 +55,11 @@ function gameMarkup(img: PuzzleImage) {
           <button class="tool tools-toggle" aria-expanded="true" aria-label="${S.collapseTools}">${icon('collapse')}</button>
         </div>
       </div>
-      <img class="preview hidden" src="${asset(img.src)}" alt="">
+      <div class="preview hidden">
+        <img src="${asset(img.src)}" alt="" draggable="false">
+        <button class="preview-close" aria-label="${S.hintClose}">${icon('close')}</button>
+        <div class="preview-resize" aria-hidden="true"></div>
+      </div>
       <aside class="hint hidden" aria-label="${S.hintTitle}">
         <button class="hint-close" aria-label="${S.hintClose}">${icon('close')}</button>
         <dl class="hint-list hint-mouse">${hintRows(S.hintMouse)}</dl>
@@ -226,6 +230,84 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
   }
 }
 
+const PREVIEW_KEY = 'puzzle.previewWin';
+const PREVIEW_MIN_W = 80;
+
+/** 讀取記住的預覽視窗位置與寬度（以畫面比例儲存，視窗大小改變也能還原）。 */
+function readPreviewPref(): { x: number; y: number; w: number } | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(PREVIEW_KEY) ?? 'null');
+    if (v && [v.x, v.y, v.w].every((n) => typeof n === 'number' && Number.isFinite(n))) return v;
+  } catch { /* 無法讀取就用預設 */ }
+  return null;
+}
+
+/** 預覽圖視窗：拖曳移動、右下角拖曳縮放（維持圖片比例），位置與大小跨關卡記住。 */
+function bindPreviewWindow(win: HTMLElement, area: HTMLElement) {
+  const handle = win.querySelector<HTMLElement>('.preview-resize')!;
+  const bounds = () => area.getBoundingClientRect();
+  const maxW = () => Math.max(PREVIEW_MIN_W, bounds().width - 16);
+
+  const apply = (x: number, y: number, w: number) => {
+    const b = bounds();
+    w = Math.min(Math.max(w, PREVIEW_MIN_W), maxW());
+    win.style.width = `${w}px`;
+    const h = win.offsetHeight;
+    x = Math.min(Math.max(x, 0), Math.max(0, b.width - w));
+    y = Math.min(Math.max(y, 0), Math.max(0, b.height - h));
+    win.style.left = `${x}px`;
+    win.style.top = `${y}px`;
+    win.style.right = 'auto';
+    win.style.bottom = 'auto';
+    return { x, y, w };
+  };
+  const save = () => {
+    const b = bounds();
+    const r = win.getBoundingClientRect();
+    try {
+      localStorage.setItem(PREVIEW_KEY, JSON.stringify({ x: (r.left - b.left) / b.width, y: (r.top - b.top) / b.height, w: r.width / b.width }));
+    } catch { /* 存不了就算了 */ }
+  };
+  /** 視窗開啟或畫面尺寸改變時，依記住的比例還原並夾回畫面內；沒有記錄就維持 CSS 預設 */
+  const restore = () => {
+    if (!win.isConnected) { window.removeEventListener('resize', restore); return; }
+    const p = readPreviewPref();
+    if (!p || win.classList.contains('hidden')) return;
+    const b = bounds();
+    apply(p.x * b.width, p.y * b.height, p.w * b.width);
+  };
+  new MutationObserver(restore).observe(win, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', restore);
+
+  const drag = (el: HTMLElement, onMove: (dx: number, dy: number, start: DOMRect, b: DOMRect) => void) => {
+    el.addEventListener('pointerdown', (e) => {
+      if ((e.target as HTMLElement).closest('.preview-close')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      el.setPointerCapture(e.pointerId);
+      const sx = e.clientX, sy = e.clientY;
+      const start = win.getBoundingClientRect();
+      const move = (ev: PointerEvent) => onMove(ev.clientX - sx, ev.clientY - sy, start, bounds());
+      const up = () => {
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', up);
+        save();
+      };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+    });
+  };
+  drag(win, (dx, dy, s, b) => apply(s.left - b.left + dx, s.top - b.top + dy, s.width));
+  // 縮放：以左上角為錨點，依水平／垂直位移較大者放大縮小
+  drag(handle, (dx, dy, s, b) => {
+    const ratio = s.height / s.width;
+    const delta = Math.abs(dx) > Math.abs(dy / ratio) ? dx : dy / ratio;
+    apply(s.left - b.left, s.top - b.top, s.width + delta);
+  });
+}
+
 /** 工具列：預覽、邊框篩選、托盤、視角、操作提示。 */
 function bindTools(node: HTMLElement, game: PuzzleGame, updateCount: () => void) {
   const q = <T extends HTMLElement = HTMLElement>(sel: string) => node.querySelector<T>(sel)!;
@@ -237,7 +319,8 @@ function bindTools(node: HTMLElement, game: PuzzleGame, updateCount: () => void)
     previewBtn.setAttribute('aria-pressed', String(on));
   };
   previewBtn.addEventListener('click', () => setPreview(previewImg.classList.contains('hidden')));
-  previewImg.addEventListener('click', () => setPreview(false));
+  q('.preview-close').addEventListener('click', () => setPreview(false));
+  bindPreviewWindow(previewImg, node);
 
   const edgeBtn = q('.edge-btn');
   edgeBtn.addEventListener('click', () => {
