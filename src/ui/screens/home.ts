@@ -5,7 +5,8 @@ import { nav } from '../nav';
 import { content, defById, store, titleBadge } from '../state';
 import { S } from '../strings';
 
-const LOGO = `<svg viewBox="0 0 100 100" width="24" height="24"><path fill="#f4b942" d="M10 10h32c0-10 16-10 16 0h32v32c-10 0-10 16 0 16v32H58c0 10-16 10-16 0H10V58c10 0 10-16 0-16z"/><path fill="#e07a5f" d="M10 10h32c0-10 16-10 16 0h-8v40H10V42c10 0 10-16 0-16z" opacity=".9"/><path fill="#81b29a" d="M50 50h40v8c-10 0-10 16 0 16v16H58c0 10-16 10-16 0h8z" opacity=".9"/></svg>`;
+// 畫框＋拼圖榫（與 PWA 圖示同一組圖形，見 scripts/make-icons.mjs）
+const LOGO = `<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M6 8H42V21A4.2 4.2 0 1 1 42 27V40H6Z"/><path d="M6 36 17 22l6 8 5-6 14 14"/><circle cx="15" cy="16" r="2.6" fill="var(--accent)" stroke="none"/></svg>`;
 
 export function showHome() {
   const equipped = defById.get(store.save.profile.equippedTitle);
