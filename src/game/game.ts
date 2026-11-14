@@ -738,7 +738,7 @@ export class PuzzleGame {
     ctx.setTransform(cam.s * this.dpr, 0, 0, cam.s * this.dpr, cam.tx * this.dpr, cam.ty * this.dpr);
 
     // 拼盤
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
     ctx.fillRect(0, 0, L.boardW, L.boardH);
     ctx.lineWidth = 3 / cam.s;
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
