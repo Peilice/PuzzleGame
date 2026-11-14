@@ -628,6 +628,8 @@ h3 {
   max-width: none;
   padding: 0;
   overflow: hidden;
+  /* 中灰桌面：深色與淺色照片的拼片都能與背景區分 */
+  background: radial-gradient(ellipse at 50% 40%, #8a8d93 0%, #62656b 100%);
 }
 .board {
   position: absolute;
@@ -1339,6 +1341,12 @@ summary::after {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  /* 減少動態時不旋轉，直接以橫放姿態提示使用者轉向 */
+  .phone-icon {
+    animation: none !important;
+    transform: rotate(-90deg);
   }
 }
