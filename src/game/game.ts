@@ -53,6 +53,7 @@ export class PuzzleGame {
   readonly pieces: PieceState[];
   private readonly edges: PieceEdges[];
   private readonly sprites: Sprite[] = [];
+  private readonly shadows: Sprite[] = [];
   private readonly paths: Path2D[] = [];
   private readonly pad: number;
   private readonly isEdge: boolean[];
@@ -184,23 +185,32 @@ export class PuzzleGame {
 
       const w = Math.ceil((L.pw + pad * 2) * res);
       const h = Math.ceil((L.ph + pad * 2) * res);
-      const c: Sprite = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+      const mk = (): Sprite => (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h }));
+      // 陰影與圖片分成兩張：同組拼片繪製時先畫完所有陰影再畫圖片，鄰片的陰影才不會蓋到凸起
+      const sc = mk();
+      const sg = sc.getContext('2d') as CanvasRenderingContext2D;
+      sg.scale(res, res);
+      sg.translate(pad, pad);
+      sg.save();
+      sg.shadowColor = 'rgba(0,0,0,0.45)';
+      sg.shadowBlur = 4 * res;
+      sg.shadowOffsetX = 1.5 * res;
+      sg.shadowOffsetY = 2 * res;
+      sg.fillStyle = '#000';
+      sg.fill(path);
+      sg.restore();
+      // 挖掉拼片本體，只留下外側陰影
+      sg.globalCompositeOperation = 'destination-out';
+      sg.fill(path);
+      this.shadows.push(sc);
+
+      const c = mk();
       const g = c.getContext('2d') as CanvasRenderingContext2D;
       g.scale(res, res);
       g.translate(pad, pad);
-      // 陰影
-      g.save();
-      g.shadowColor = 'rgba(0,0,0,0.45)';
-      g.shadowBlur = 4 * res;
-      g.shadowOffsetX = 1.5 * res;
-      g.shadowOffsetY = 2 * res;
-      g.fillStyle = '#000';
-      g.fill(path);
-      g.restore();
       // 圖片
       g.save();
       g.clip(path);
-      g.clearRect(-pad, -pad, L.pw + pad * 2, L.ph + pad * 2);
       const bx = x0 - pad;
       const by = y0 - pad;
       const bw = L.pw + pad * 2;
@@ -750,12 +760,15 @@ export class PuzzleGame {
     const { ctx, L, pad } = this;
     const dw = L.pw + pad * 2;
     const dh = L.ph + pad * 2;
+    const visible: number[] = [];
     for (const i of this.membersByGroup().get(group) ?? []) {
       const p = this.pieces[i];
       if (p.tray || this.isHidden(i)) continue;
       if (p.x + L.pw + pad < v0.x || p.y + L.ph + pad < v0.y || p.x - pad > v1.x || p.y - pad > v1.y) continue;
-      ctx.drawImage(this.sprites[i], p.x - pad, p.y - pad, dw, dh);
+      visible.push(i);
     }
+    for (const i of visible) ctx.drawImage(this.shadows[i], this.pieces[i].x - pad, this.pieces[i].y - pad, dw, dh);
+    for (const i of visible) ctx.drawImage(this.sprites[i], this.pieces[i].x - pad, this.pieces[i].y - pad, dw, dh);
   }
 
   private drawTray() {
@@ -784,6 +797,7 @@ export class PuzzleGame {
       for (let k = firstCol * g.rows; k < end; k++) {
         const x = TRAY_MARGIN + Math.floor(k / g.rows) * step - this.trayScroll;
         const y = r.y + TRAY_MARGIN + (k % g.rows) * (g.cellH + g.gap);
+        ctx.drawImage(this.shadows[list[k]], x, y, g.cellW, g.cellH);
         ctx.drawImage(this.sprites[list[k]], x, y, g.cellW, g.cellH);
       }
       if (g.contentW > viewW) {
@@ -809,6 +823,7 @@ export class PuzzleGame {
     for (let k = first; k < end; k++) {
       const x = r.x + TRAY_MARGIN + (k % g.cols) * (g.cellW + g.gap);
       const y = this.trayTop + Math.floor(k / g.cols) * step - this.trayScroll;
+      ctx.drawImage(this.shadows[list[k]], x, y, g.cellW, g.cellH);
       ctx.drawImage(this.sprites[list[k]], x, y, g.cellW, g.cellH);
     }
     if (g.contentH > viewH) {
