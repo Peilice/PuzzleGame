@@ -35,7 +35,11 @@ export function showHome() {
         ${hero ? `<aside class="wall-label hero-label"><small>${S.nowShowing}</small><strong>${esc(hero.name)}</strong>${hero.artist ? `<span>${esc(hero.artist)}</span>` : ''}${hero.license ? `<em>${esc(hero.license)}</em>` : ''}</aside>` : ''}
       </section>
     </main>`);
-  if (hero) node.querySelector<HTMLElement>('.hero')!.style.setProperty('--hero', `url("${asset(hero.src)}")`);
+  if (hero) {
+    // CSS 變數內的相對 URL 會以樣式表（打包後在 assets/）為基準，須先換成以頁面為基準的絕對網址
+    const url = new URL(asset(hero.src), document.baseURI).href;
+    node.querySelector<HTMLElement>('.hero')!.style.setProperty('--hero', `url("${url}")`);
+  }
   node.querySelector('.play')!.addEventListener('click', nav.categories);
   node.querySelector('.titles')!.addEventListener('click', nav.titles);
   node.querySelector('.stats')!.addEventListener('click', nav.stats);
