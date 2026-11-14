@@ -1,4 +1,4 @@
-// 端對端測試：左鍵在拼盤 / 空白處拖曳不移動視角；右鍵拖曳才平移。
+// 端對端測試：左鍵 / 單指在空白處拖曳會平移視角；右鍵拖曳同樣平移。
 // 用法：npm run e2e -- pan
 import { drag, launch, newPage, openGame, report } from './lib.mjs';
 
@@ -20,7 +20,7 @@ const afterRight = await cam();
 await report(
   browser,
   {
-    leftDragKeepsBoard: before.tx === afterLeft.tx && before.ty === afterLeft.ty,
+    leftDragPans: Math.round(afterLeft.tx - before.tx) === 200 && Math.round(afterLeft.ty - before.ty) === 120,
     rightDragPans: Math.round(afterRight.tx - afterLeft.tx) === 200 && Math.round(afterRight.ty - afterLeft.ty) === 120,
     noPageErrors: errors.length === 0,
   },

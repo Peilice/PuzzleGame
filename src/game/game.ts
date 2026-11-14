@@ -585,9 +585,11 @@ export class PuzzleGame {
       sfx.pick();
       this.dirty = true;
       this.updateCursor(e);
+      return;
     }
-    // 左鍵 / 單指沒點到可拖動的拼片（空白處、拼盤、已鎖定的拼片）時不做任何事，
-    // 避免拖空時整個拼盤跟著跑。平移改用右鍵 / 中鍵拖曳或雙指。
+    // 單指 / 左鍵沒點到可拖動的拼片（空白處、已鎖定的拼片）時，改為平移畫面
+    this.pan = { x: pt.x, y: pt.y, pointerId: e.pointerId };
+    this.updateCursor(e);
   };
 
   /** 滑鼠游標：可拖動的拼片上顯示抓手，拖曳 / 平移中顯示對應游標，其餘為一般箭頭 */
