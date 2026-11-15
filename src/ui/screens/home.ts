@@ -1,4 +1,5 @@
 // 主畫面。
+import { mainImages } from '../../core/content';
 import { allProgress } from '../../core/storage';
 import { asset, el, esc, mount } from '../dom';
 import { nav } from '../nav';
@@ -12,8 +13,7 @@ export function showHome() {
   const equipped = defById.get(store.save.profile.equippedTitle);
   // 主視覺：每次進主畫面隨機挑一幅
   // 獨立入口的分類（只能靠網址進入）不出現在主畫面：主視覺與館藏數都不計入
-  const hidden = new Set(content.categories.filter((c) => c.standalone).map((c) => c.id));
-  const shown = content.images.filter((i) => !hidden.has(i.category));
+  const shown = mainImages(content);
   const hero = shown[Math.floor(Math.random() * shown.length)];
   const node = el(`
     <main class="screen home">

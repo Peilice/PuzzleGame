@@ -1,4 +1,5 @@
 // 統計頁。
+import { mainImages } from '../../core/content';
 import { comboKey } from '../../core/save';
 import { categoryCap, computeStats } from '../../core/stats';
 import { visibleTitles } from '../../core/titles';
@@ -15,11 +16,13 @@ export function showStats(filterCat = content.categories[0].id) {
   const { save } = store;
   const stats = computeStats(save, content);
   const views = visibleTitles(save, stats, content, defs);
-  const catRows = content.categories.map((c) => barRow(c.name, stats.combosByCategory.get(c.id) ?? 0, categoryCap(content, c.id))).join('');
+  // 獨立入口的分類（只能靠網址進入）要完成過才會出現在統計裡，沒玩過的人看不到它
+  const shownCategories = content.categories.filter((c) => !c.standalone || (stats.combosByCategory.get(c.id) ?? 0) > 0);
+  const catRows = shownCategories.map((c) => barRow(c.name, stats.combosByCategory.get(c.id) ?? 0, categoryCap(content, c.id))).join('');
   const diffRows = content.difficulties
-    .map((d) => barRow(S.pieces(d.label), stats.combosByDifficulty.get(d.id) ?? 0, content.images.length))
+    .map((d) => barRow(S.pieces(d.label), stats.combosByDifficulty.get(d.id) ?? 0, mainImages(content).length))
     .join('');
-  const catTabs = content.categories
+  const catTabs = shownCategories
     .map((c) => `<button class="tab ${c.id === filterCat ? 'active' : ''}" data-cat="${c.id}">${esc(c.name)}</button>`)
     .join('');
   const matrix = content.images

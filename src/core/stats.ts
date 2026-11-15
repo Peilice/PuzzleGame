@@ -11,7 +11,7 @@ export interface Stats {
   imagesDone: Set<string>;
   /** 難度 → 完成次數（含重複） */
   countByDifficulty: Map<string, number>;
-  /** 難度 → 不重複組合數 */
+  /** 難度 → 不重複組合數（只算一般分類；獨立入口的分類不列入，這樣才和 mainImages 的分母一致） */
   combosByDifficulty: Map<string, number>;
   /** 難度 → 最快時間 ms */
   fastestByDifficulty: Map<string, number>;
@@ -23,6 +23,7 @@ const inc = (m: Map<string, number>, k: string, by = 1) => m.set(k, (m.get(k) ??
 
 export function computeStats(save: SaveData, content: Content): Stats {
   const imageCat = new Map(content.images.map((i) => [i.id, i.category]));
+  const standalone = new Set(content.categories.filter((c) => c.standalone).map((c) => c.id));
   const s: Stats = {
     combos: new Set(),
     combosByCategory: new Map(),
@@ -45,7 +46,7 @@ export function computeStats(save: SaveData, content: Content): Stats {
     if (!s.combos.has(key)) {
       s.combos.add(key);
       inc(s.combosByCategory, cat);
-      inc(s.combosByDifficulty, c.difficultyId);
+      if (!standalone.has(cat)) inc(s.combosByDifficulty, c.difficultyId);
     }
     s.imagesDone.add(c.imageId);
   }

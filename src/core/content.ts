@@ -48,6 +48,15 @@ export interface Content {
 
 export const pieceCount = (d: Difficulty) => d.cols * d.rows;
 
+/**
+ * 一般（非獨立入口）分類的圖片。獨立入口的分類只能靠網址進入，不該出現在主畫面、
+ * 也不該列入「全部完成」類的稱號與各難度的進度分母。
+ */
+export function mainImages(content: Content): PuzzleImage[] {
+  const hidden = new Set(content.categories.filter((c) => c.standalone).map((c) => c.id));
+  return content.images.filter((i) => !hidden.has(i.category));
+}
+
 export const CATEGORIES: Category[] = [
   {
     id: 'landscape',

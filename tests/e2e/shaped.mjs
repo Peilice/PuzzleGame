@@ -57,6 +57,25 @@ const grabPoint = (page, i) =>
   await page.close();
 }
 
+// 稱號圖鑑與統計頁沒有任何異型的痕跡（沒玩過異型的人看不到）
+{
+  const { page, errors } = await newPage(browser);
+  await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
+  const leaks = ['異型', '圖案初學者', '拼貼學徒', '剪紙達人', '花窗工匠', '織紋設計師', '拼花匠師', '萬花筒玩家', '幾何大師', '曼陀羅行者', '異形傳說', '萬象通曉'];
+  await page.click('.titles');
+  await page.waitForSelector('.title-grid');
+  const titlesText = await page.$eval('.screen', (n) => n.textContent);
+  checks.titlesPageHidesShaped = leaks.every((w) => !titlesText.includes(w));
+  await page.click('.back');
+  await page.waitForSelector('.stats');
+  await page.click('.stats');
+  await page.waitForSelector('.stats-screen');
+  const statsText = await page.$eval('.stats-screen', (n) => n.textContent);
+  checks.statsPageHidesShaped = !statsText.includes('異型');
+  allErrors.push(...errors);
+  await page.close();
+}
+
 // 直接開網址（全新載入）就停在異型圖片列表；重新整理後仍然是
 {
   const { page, errors } = await newPage(browser);
