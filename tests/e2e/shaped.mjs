@@ -255,5 +255,52 @@ let largestMs = 0;
   await page.close();
 }
 
+// ---------------------------------------------------------------- 完成異型局：不宣告異型專屬稱號（結算、通知），但稱號照常解鎖
+{
+  const { page, errors } = await newPage(browser);
+  await openGame(page, { shaped: true, image: 0, difficulty: 0, inTray: true });
+  // 其餘拼片直接放好，只留最後一片從托盤用滑鼠拖到正確位置（與 smoke 相同的做法）
+  const last = await page.evaluate(() => {
+    const g = window.__game;
+    const n = g.pieces.length;
+    g.pieces.forEach((p, i) => {
+      if (i !== n - 1) Object.assign(p, { x: g.L.geoms[i].x, y: g.L.geoms[i].y, locked: true, group: 0, tray: false });
+    });
+    g.trayOrder.length = 0;
+    g.trayOrder.push(n - 1);
+    g.pieces[n - 1].tray = true;
+    g.invalidateGroups();
+    g.invalidateTray();
+    g.setTrayOpen(true);
+    g.resetView();
+    const r = g.trayRect();
+    const geo = g.bottomTray ? g.trayRowGeom() : g.trayGeom();
+    const geom = g.L.geoms[n - 1];
+    return {
+      from: g.bottomTray ? { x: 8 + geo.cellW / 2, y: r.y + 8 + geo.cellH / 2 } : { x: r.x + 8 + geo.cellW / 2, y: g.trayTop + geo.cellH / 2 },
+      to: g.toScreen(geom.x + geom.w / 2, geom.y + geom.h / 2),
+    };
+  });
+  await drag(page, last.from, last.to);
+  await page.waitForSelector('.overlay.result', { timeout: 8000 });
+  await sleep(1500);
+  const resultText = await page.$eval('.overlay.result', (e) => e.innerText);
+  const shapedNames = ['圖案初學者', '異型收藏家'];
+  checks.shapedResultShown = resultText.includes('完成') && resultText.includes('新紀錄');
+  checks.resultHidesShapedTitles = shapedNames.every((w) => !resultText.includes(w));
+  checks.resultStillShowsRegularTitles = resultText.includes('初出茅廬'); // 一般的難度線稱號照常宣告
+  const toastText = await page.$$eval('.toast', (t) => t.map((x) => x.textContent).join('|'));
+  checks.toastsHideShapedTitles = shapedNames.every((w) => !toastText.includes(w));
+  // 稱號其實已靜默解鎖：回主畫面打開圖鑑，就看得到
+  await page.click('.to-home');
+  await page.waitForSelector('.titles');
+  await page.click('.titles');
+  await page.waitForSelector('.title-grid');
+  const titlesText = await page.$eval('.screen', (n) => n.textContent);
+  checks.shapedTitleSilentlyUnlocked = titlesText.includes('圖案初學者');
+  allErrors.push(...errors);
+  await page.close();
+}
+
 checks.noPageErrors = allErrors.length === 0;
 await report(browser, checks, { largestLoadMs: largestMs, errors: allErrors });

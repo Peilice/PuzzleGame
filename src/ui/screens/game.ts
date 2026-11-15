@@ -8,7 +8,7 @@ import { sfx } from '../../audio';
 import { asset, el, esc, isMounted, mount, onLeave, toast } from '../dom';
 import { formatTime } from '../format';
 import { nav } from '../nav';
-import { content, defById, persist, refreshTitles, safeWrite, store, titleBadge } from '../state';
+import { announceable, content, defById, persist, refreshTitles, safeWrite, store, titleBadge } from '../state';
 import { S } from '../strings';
 
 /** 放下拼片後隔多久自動存檔 */
@@ -239,7 +239,8 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
     const timeMs = Math.round(ms);
     const r = recordCompletion(store.save, { imageId: img.id, difficultyId: diff.id, pieces: total, timeMs, at: Date.now(), assistsUsed: [] });
     store.save = r.save;
-    const unlocked = refreshTitles();
+    // refreshTitles 已把所有新解鎖的稱號寫進存檔；只有非獨立入口的才宣告（見 announceable）
+    const unlocked = announceable(refreshTitles());
     await Promise.all([persist(), safeWrite(() => deleteProgress(img.id, diff.id))]);
     setTimeout(() => {
       if (disposed) return; // 結算出現前已離開遊戲畫面
