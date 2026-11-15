@@ -107,10 +107,10 @@ describe('存檔', () => {
 describe('稱號', () => {
   const content = makeContent();
 
-  it('目前可見的稱號共 87 個', () => {
+  it('目前可見的稱號共 96 個', () => {
     const save = createSave();
     const { defs, stats } = run(save, content);
-    expect(visibleTitles(save, stats, content, defs)).toHaveLength(87);
+    expect(visibleTitles(save, stats, content, defs)).toHaveLength(96);
   });
 
   it('分類線計算不重複的圖片 × 難度組合', () => {

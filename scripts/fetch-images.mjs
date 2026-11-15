@@ -6,6 +6,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { renderShaped } from './shaped-art.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = path.join(ROOT, 'assets-raw');
@@ -216,7 +217,7 @@ async function build() {
   await fs.rm(outDir, { recursive: true, force: true });
   await fs.mkdir(outDir, { recursive: true });
   const images = [];
-  const credits = ['# 圖片來源（CREDITS）', '', '所有內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。', ''];
+  const credits = ['# 圖片來源（CREDITS）', '', '除「異型」分類為程式生成外，內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。', ''];
   for (const [catId, entries] of Object.entries(picks)) {
     credits.push(`## ${catId}`, '', '| ID | 名稱 | 作者 | 授權 | 來源 |', '|---|---|---|---|---|');
     for (let i = 0; i < entries.length; i++) {
@@ -233,6 +234,12 @@ async function build() {
     }
     credits.push('');
   }
+  // 「異型」分類不來自 Commons，而是程式生成（scripts/shaped-art.mjs）
+  const shaped = await renderShaped(outDir);
+  images.push(...shaped);
+  credits.push('## shaped', '', '全部為程式生成的原創幾何圖案（scripts/shaped-art.mjs），授權 CC0。', '', '| ID | 名稱 |', '|---|---|');
+  for (const it of shaped) credits.push(`| ${it.id} | ${it.name} |`);
+  credits.push('');
   await fs.mkdir(path.join(ROOT, 'src', 'content'), { recursive: true });
   await fs.writeFile(path.join(ROOT, 'src', 'content', 'images.json'), JSON.stringify(images, null, 2) + '\n');
   await fs.writeFile(path.join(ROOT, 'CREDITS.md'), credits.join('\n'));

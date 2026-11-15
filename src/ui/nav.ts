@@ -4,6 +4,8 @@ import type { Difficulty, PuzzleImage } from '../core/content';
 export interface Nav {
   home(): void;
   categories(): void;
+  /** 異型拼圖：獨立於分類列表的入口 */
+  shaped(): void;
   images(categoryId: string): void;
   game(img: PuzzleImage, diff: Difficulty): void;
   titles(): void;

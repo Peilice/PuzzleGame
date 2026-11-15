@@ -27,11 +27,13 @@ npm run preview    # 預覽建置結果
 - iPad / iPhone（Safari）：分享 →「加入主畫面」。
 - Android（Chrome）：選單 →「安裝應用程式」。
 
-安裝後完全離線可玩。圖庫約 50 張 1920×1440 WebP，預快取總量約 20～30 MB。
+安裝後完全離線可玩。圖庫約 59 張 1920×1440 WebP，預快取總量約 20～30 MB。
 
 ## 圖庫
 
 圖片取自 Wikimedia Commons，只收公有領域 / CC0。出處見 [`CREDITS.md`](CREDITS.md)。
+「異型」分類例外：圖片由 `scripts/shaped-art.mjs` 程式生成（固定種子，授權 CC0），`build` 時一併輸出。
+預覽單獨輸出：`node scripts/shaped-art.mjs <輸出資料夾>`。
 
 ```bash
 node scripts/fetch-images.mjs candidates   # 下載候選圖到 assets-raw/ 並產生預覽拼貼

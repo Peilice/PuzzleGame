@@ -498,5 +498,86 @@
     "artist": "George Chernilevsky",
     "license": "Public domain",
     "sourceUrl": "https://commons.wikimedia.org/wiki/File:Apple-tree_blossoms_2017_G3.jpg"
+  },
+  {
+    "id": "shaped-01",
+    "category": "shaped",
+    "name": "八角星磚",
+    "src": "images/shaped-01.webp",
+    "thumb": "images/shaped-01-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-02",
+    "category": "shaped",
+    "name": "生命之花",
+    "src": "images/shaped-02.webp",
+    "thumb": "images/shaped-02-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-03",
+    "category": "shaped",
+    "name": "彩繪生命之花",
+    "src": "images/shaped-03.webp",
+    "thumb": "images/shaped-03-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-04",
+    "category": "shaped",
+    "name": "萬花曼陀羅",
+    "src": "images/shaped-04.webp",
+    "thumb": "images/shaped-04-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-05",
+    "category": "shaped",
+    "name": "琉璃彩窗",
+    "src": "images/shaped-05.webp",
+    "thumb": "images/shaped-05-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-06",
+    "category": "shaped",
+    "name": "青海波",
+    "src": "images/shaped-06.webp",
+    "thumb": "images/shaped-06-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-07",
+    "category": "shaped",
+    "name": "包浩斯方磚",
+    "src": "images/shaped-07.webp",
+    "thumb": "images/shaped-07-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-08",
+    "category": "shaped",
+    "name": "立方積木",
+    "src": "images/shaped-08.webp",
+    "thumb": "images/shaped-08-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
+  },
+  {
+    "id": "shaped-09",
+    "category": "shaped",
+    "name": "北歐編織",
+    "src": "images/shaped-09.webp",
+    "thumb": "images/shaped-09-thumb.webp",
+    "artist": "程式生成",
+    "license": "CC0"
   }
 ]

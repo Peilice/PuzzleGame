@@ -9,6 +9,8 @@ export interface Category {
   titleNames: string[];
   /** 「全部完成」收藏家稱號名稱 */
   collectorName: string;
+  /** 獨立入口：不出現在「選擇分類」列表，由主畫面另設按鈕進入（暫時與其他分類分開） */
+  standalone?: boolean;
 }
 
 export interface Difficulty {
@@ -77,6 +79,14 @@ export const CATEGORIES: Category[] = [
     original: true,
     titleNames: ['賞花人', '澆水小幫手', '園丁', '花店店員', '花藝師', '植物學家', '花藝大師', '花園主人', '百花仙子', '花神'],
     collectorName: '花卉收藏家',
+  },
+  {
+    id: 'shaped',
+    name: '異型',
+    original: false,
+    standalone: true,
+    titleNames: ['圖案初學者', '拼貼學徒', '剪紙達人', '花窗工匠', '織紋設計師', '拼花匠師', '萬花筒玩家', '幾何大師', '曼陀羅行者', '異形傳說'],
+    collectorName: '異型收藏家',
   },
 ];
 

@@ -11,6 +11,9 @@ import { S } from '../strings';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
+/** 獨立入口的分類（不在分類列表中，由主畫面的「異型拼圖」進入） */
+export const SHAPED_CATEGORY = 'shaped';
+
 export function showCategories() {
   const stats = computeStats(store.save, content);
   const node = el(`<main class="screen"><div class="grid cats"></div></main>`);
@@ -18,6 +21,7 @@ export function showCategories() {
   const grid = node.querySelector('.grid')!;
   let room = 0;
   for (const cat of content.categories) {
+    if (cat.standalone) continue;
     const imgs = content.images.filter((i) => i.category === cat.id);
     if (!imgs.length) continue;
     room++;
@@ -42,9 +46,11 @@ export function showCategories() {
 export async function showImages(categoryId: string) {
   const cat = content.categories.find((c) => c.id === categoryId);
   if (!cat) return nav.categories();
+  // 獨立入口的分類從主畫面進來，返回也回主畫面
+  const back = cat.standalone ? nav.home : nav.categories;
   const progress = new Map((await allProgress().catch(() => [])).map((p) => [comboKey(p.imageId, p.difficultyId), p]));
   const node = el(`<main class="screen"><div class="grid imgs"></div></main>`);
-  node.prepend(header(cat.name, nav.categories));
+  node.prepend(header(cat.name, back));
   const grid = node.querySelector('.grid')!;
   for (const img of content.images.filter((i) => i.category === categoryId)) {
     const card = el(`

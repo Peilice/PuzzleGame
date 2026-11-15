@@ -78,6 +78,7 @@ export const S = {
   appTagline: '一片一片，拼出好風景',
   equipped: '目前稱號',
   play: '開始拼圖',
+  playShaped: '異型拼圖',
   continueLast: '繼續上一局',
   titles: '稱號圖鑑',
   stats: '統計',

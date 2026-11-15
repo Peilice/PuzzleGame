@@ -5,7 +5,7 @@ import { esc, toast } from './dom';
 import { nav, type Nav } from './nav';
 import { startGame } from './screens/game';
 import { showHome } from './screens/home';
-import { showCategories, showImages } from './screens/select';
+import { SHAPED_CATEGORY, showCategories, showImages } from './screens/select';
 import { showSettings } from './screens/settings';
 import { showStats } from './screens/stats';
 import { showTitles } from './screens/titles';
@@ -18,6 +18,7 @@ const ISSUE_TOAST_MS = 9000;
 const routes: Nav = {
   home: showHome,
   categories: showCategories,
+  shaped: () => void showImages(SHAPED_CATEGORY),
   images: (categoryId) => void showImages(categoryId),
   game: (img, diff) => void startGame(img, diff),
   titles: () => showTitles(),

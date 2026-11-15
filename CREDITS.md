@@ -1,6 +1,6 @@
 # 圖片來源（CREDITS）
 
-所有內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。
+除「異型」分類為程式生成外，內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。
 
 ## landscape
 
@@ -76,3 +76,19 @@
 | flower-08 | 繡球花 | Bernard Spragg. NZ from Christchurch, New Zealand | CC0 | [File:Hydrangea (9559122347).jpg](https://commons.wikimedia.org/wiki/File:Hydrangea_(9559122347).jpg) |
 | flower-09 | 鬱金香 | Peter Kasprzyk petekasprzyk | CC0 | [File:Tulip Field (Unsplash).jpg](https://commons.wikimedia.org/wiki/File:Tulip_Field_(Unsplash).jpg) |
 | flower-10 | 蘋果花 | George Chernilevsky | Public domain | [File:Apple-tree blossoms 2017 G3.jpg](https://commons.wikimedia.org/wiki/File:Apple-tree_blossoms_2017_G3.jpg) |
+
+## shaped
+
+全部為程式生成的原創幾何圖案（scripts/shaped-art.mjs），授權 CC0。
+
+| ID | 名稱 |
+|---|---|
+| shaped-01 | 八角星磚 |
+| shaped-02 | 生命之花 |
+| shaped-03 | 彩繪生命之花 |
+| shaped-04 | 萬花曼陀羅 |
+| shaped-05 | 琉璃彩窗 |
+| shaped-06 | 青海波 |
+| shaped-07 | 包浩斯方磚 |
+| shaped-08 | 立方積木 |
+| shaped-09 | 北歐編織 |
