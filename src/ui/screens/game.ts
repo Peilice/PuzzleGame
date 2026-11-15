@@ -1,5 +1,6 @@
 // 遊戲畫面：工具列、暫停、自動存檔與結算。拼圖本身（Canvas）在 game/game.ts。
 import { pieceCount, type Difficulty, type PuzzleImage } from '../../core/content';
+import { isSilhouette } from '../../core/irregular';
 import { recordCompletion } from '../../core/save';
 import { deleteProgress, loadProgress, writeProgress, type GameProgress } from '../../core/storage';
 import { PuzzleGame } from '../../game/game';
@@ -7,7 +8,7 @@ import { sfx } from '../../audio';
 import { asset, el, esc, isMounted, mount, onLeave, toast } from '../dom';
 import { formatTime } from '../format';
 import { nav } from '../nav';
-import { defById, persist, refreshTitles, safeWrite, store, titleBadge } from '../state';
+import { content, defById, persist, refreshTitles, safeWrite, store, titleBadge } from '../state';
 import { S } from '../strings';
 
 /** 放下拼片後隔多久自動存檔 */
@@ -32,6 +33,12 @@ const ICONS = {
 };
 const icon = (k: keyof typeof ICONS) => `<svg viewBox="0 0 24 24" class="ic">${ICONS[k]}</svg>`;
 const hintRows = (rows: [string, string][]) => rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+
+/** 這張圖用的切割方式：所屬分類是異型切割就帶上輪廓（沒指定為整個矩形），否則是經典切割 */
+function cutOf(img: PuzzleImage) {
+  if (content.categories.find((c) => c.id === img.category)?.cut !== 'irregular') return undefined;
+  return { silhouette: isSilhouette(img.silhouette) ? img.silhouette : ('rect' as const) };
+}
 
 function gameMarkup(img: PuzzleImage) {
   return `
@@ -128,6 +135,7 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
       difficultyId: diff.id,
       cols: diff.cols,
       rows: diff.rows,
+      cut: cutOf(img),
       progress: progress ?? null,
       startInTray: store.save.settings.startInTray,
       onChange: () => {

@@ -48,7 +48,8 @@ node scripts/fetch-images.mjs build        # 輸出 public/images、src/content/
 | `src/core/content.ts` | 分類、難度、稱號名稱設定（新增內容只改這裡與 `images.json`） |
 | `src/core/titles.ts` | 稱號定義產生與解鎖 / 可見判定 |
 | `src/core/save.ts` / `stats.ts` | 存檔結構、版本遷移、統計推導 |
-| `src/core/puzzle.ts` | 拼片形狀、吸附合併、鎖定、散片排列 |
+| `src/core/puzzle.ts` | 拼片幾何（`PieceGeom`）、經典格狀切割、吸附合併、鎖定、散片排列 |
+| `src/core/irregular.ts` | 異型切割：Voronoi 不規則拼片與拼盤輪廓 |
 | `src/core/storage.ts` | 存檔與進度的儲存層（IndexedDB，無法使用時改用記憶體）、匯出 / 匯入 |
 | `src/game/game.ts` | Canvas 遊戲（繪製、觸控 / 滑鼠操作） |
 | `src/ui/app.ts` / `nav.ts` | 啟動流程與畫面導覽 |

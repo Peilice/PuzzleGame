@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { build, createServer, preview } from 'vite';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT = ['smoke', 'tray', 'pan', 'hint', 'extra', 'storage'];
+const DEFAULT = ['smoke', 'tray', 'pan', 'hint', 'shaped', 'extra', 'storage'];
 const names = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT;
 
 const dev = await createServer({ server: { port: 5199 }, logLevel: 'error' });

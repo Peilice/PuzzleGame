@@ -506,7 +506,8 @@
     "src": "images/shaped-01.webp",
     "thumb": "images/shaped-01-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "octagon"
   },
   {
     "id": "shaped-02",
@@ -515,7 +516,8 @@
     "src": "images/shaped-02.webp",
     "thumb": "images/shaped-02-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "circle"
   },
   {
     "id": "shaped-03",
@@ -524,7 +526,8 @@
     "src": "images/shaped-03.webp",
     "thumb": "images/shaped-03-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "hexagon"
   },
   {
     "id": "shaped-04",
@@ -533,7 +536,8 @@
     "src": "images/shaped-04.webp",
     "thumb": "images/shaped-04-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "ellipse"
   },
   {
     "id": "shaped-05",
@@ -542,7 +546,8 @@
     "src": "images/shaped-05.webp",
     "thumb": "images/shaped-05-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "arch"
   },
   {
     "id": "shaped-06",
@@ -551,7 +556,8 @@
     "src": "images/shaped-06.webp",
     "thumb": "images/shaped-06-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "rect"
   },
   {
     "id": "shaped-07",
@@ -560,7 +566,8 @@
     "src": "images/shaped-07.webp",
     "thumb": "images/shaped-07-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "rounded"
   },
   {
     "id": "shaped-08",
@@ -569,7 +576,8 @@
     "src": "images/shaped-08.webp",
     "thumb": "images/shaped-08-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "diamond"
   },
   {
     "id": "shaped-09",
@@ -578,6 +586,7 @@
     "src": "images/shaped-09.webp",
     "thumb": "images/shaped-09-thumb.webp",
     "artist": "程式生成",
-    "license": "CC0"
+    "license": "CC0",
+    "silhouette": "rect"
   }
 ]

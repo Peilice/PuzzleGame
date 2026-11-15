@@ -37,7 +37,8 @@ export interface PieceEdges {
  * tracePiece 以順時針描邊，共用邊在兩片中的走向相反（例如上片的下邊由右往左、下片的上邊由左往右），
  * 所以沿邊的參數也要鏡射：center → 1 - center、skew → -skew，切割線才會在世界座標重合。
  */
-const invert = (t: Tab): Tab => ({ dir: (-t.dir) as Tab['dir'], center: 1 - t.center, size: t.size, skew: -t.skew });
+export const invertTab = (t: Tab): Tab => ({ dir: (-t.dir) as Tab['dir'], center: 1 - t.center, size: t.size, skew: -t.skew });
+const invert = invertTab;
 
 /** 產生所有拼片的邊；相鄰兩片共享同一條邊的參數，方向相反（互補）。 */
 export function generateEdges(cols: number, rows: number, seed: number): PieceEdges[] {
@@ -80,7 +81,7 @@ export const isEdgePiece = (index: number, cols: number, rows: number) => {
 /** 卡榫最多凸出拼片尺寸的比例（繪圖時的留白） */
 export const TAB_EXTENT = 0.28;
 
-type PathSink = {
+export type PathSink = {
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
   bezierCurveTo(c1x: number, c1y: number, c2x: number, c2y: number, x: number, y: number): void;
@@ -93,14 +94,19 @@ type PathSink = {
  */
 export function tracePiece(p: PathSink, e: PieceEdges, w: number, h: number) {
   p.moveTo(0, 0);
-  edge(p, e.top, 0, 0, w, 0, 0, -1, w, h);
-  edge(p, e.right, w, 0, w, h, 1, 0, h, w);
-  edge(p, e.bottom, w, h, 0, h, 0, 1, w, h);
-  edge(p, e.left, 0, h, 0, 0, -1, 0, h, w);
+  traceEdge(p, e.top, 0, 0, w, 0, 0, -1, w, h);
+  traceEdge(p, e.right, w, 0, w, h, 1, 0, h, w);
+  traceEdge(p, e.bottom, w, h, 0, h, 0, 1, w, h);
+  traceEdge(p, e.left, 0, h, 0, 0, -1, 0, h, w);
   p.closePath();
 }
 
-function edge(
+/**
+ * 沿一條邊（x0,y0 → x1,y1）畫出平邊或卡榫。(nx, ny) 為往外的單位法線，
+ * len 為邊長、other 為決定卡榫大小的參考尺寸（經典款是另一個方向的邊長）。
+ * 順時針走向時，法線為 (uy, -ux)。
+ */
+export function traceEdge(
   p: PathSink,
   t: Tab,
   x0: number,
@@ -146,31 +152,73 @@ export interface PieceState {
   tray?: boolean;
 }
 
+export interface Neighbor {
+  /** 相鄰拼片的索引 */
+  i: number;
+  /** 兩片都在正確位置時，對方相對於自己的位移（世界座標） */
+  dx: number;
+  dy: number;
+}
+
+/**
+ * 一片拼片的幾何：與切割方式無關，經典（格狀）與異型（不規則）都以此描述。
+ * 拼片的位置（PieceState.x / y）指的是「本體外框的左上角」。
+ */
+export interface PieceGeom {
+  /** 本體外框左上角在拼盤上的正確位置（世界座標） */
+  x: number;
+  y: number;
+  /** 本體外框大小（不含凸出去的卡榫） */
+  w: number;
+  h: number;
+  /** 共用邊的相鄰拼片（吸附、合併用） */
+  neighbors: Neighbor[];
+  /** 是否碰到拼盤邊界（邊框篩選用） */
+  edge: boolean;
+  /** 把輪廓寫入 path，原點為 (x, y) 即本體外框左上角 */
+  trace(p: PathSink): void;
+}
+
 export interface Layout {
   cols: number;
   rows: number;
-  /** 拼片寬高（世界座標） */
+  /** 最大拼片的外框寬高（世界座標）：托盤格子、散放間距、續排版面以此為準 */
   pw: number;
   ph: number;
+  /** 拼片的典型大小（吸附容差、卡榫留白以此計算）；經典款為較短邊 */
+  unit: number;
   /** 拼盤左上角在世界座標的位置（固定為 0,0） */
   boardW: number;
   boardH: number;
+  /** 每一片拼片的幾何 */
+  geoms: PieceGeom[];
+  /** 拼盤輪廓（世界座標的多邊形，順時針）；null 表示整個矩形 */
+  outline: [number, number][] | null;
 }
 
-export function makeLayout(cols: number, rows: number, imageAspect = 4 / 3): Layout {
+/** 經典切割：cols × rows 的格狀拼片，每條邊一個卡榫。seed 決定卡榫的形狀。 */
+export function makeLayout(cols: number, rows: number, imageAspect = 4 / 3, seed = 0): Layout {
   const pw = 100;
   const boardW = pw * cols;
   const boardH = boardW / imageAspect;
-  return { cols, rows, pw, ph: boardH / rows, boardW, boardH };
+  const ph = boardH / rows;
+  const edges = generateEdges(cols, rows, seed);
+  const geoms: PieceGeom[] = edges.map((e, i) => {
+    const { col, row } = cellOf(i, cols);
+    const neighbors: Neighbor[] = [];
+    if (col > 0) neighbors.push({ i: i - 1, dx: -pw, dy: 0 });
+    if (col < cols - 1) neighbors.push({ i: i + 1, dx: pw, dy: 0 });
+    if (row > 0) neighbors.push({ i: i - cols, dx: 0, dy: -ph });
+    if (row < rows - 1) neighbors.push({ i: i + cols, dx: 0, dy: ph });
+    return { x: col * pw, y: row * ph, w: pw, h: ph, neighbors, edge: isEdgePiece(i, cols, rows), trace: (p) => tracePiece(p, e, pw, ph) };
+  });
+  return { cols, rows, pw, ph, unit: Math.min(pw, ph), boardW, boardH, geoms, outline: null };
 }
 
-export const correctPos = (L: Layout, i: number) => {
-  const { col, row } = cellOf(i, L.cols);
-  return { x: col * L.pw, y: row * L.ph };
-};
+export const correctPos = (L: Layout, i: number) => ({ x: L.geoms[i].x, y: L.geoms[i].y });
 
-/** 吸附容差（世界座標）：拼片較短邊的 22% */
-const snapTolerance = (L: Layout) => Math.min(L.pw, L.ph) * 0.22;
+/** 吸附容差（世界座標）：拼片典型大小的 22% */
+const snapTolerance = (L: Layout) => L.unit * 0.22;
 
 function groupMembers(pieces: PieceState[], group: number): number[] {
   const out: number[] = [];
@@ -209,13 +257,7 @@ export function dropGroup(pieces: PieceState[], L: Layout, group: number): DropR
     changed = false;
     const members = groupMembers(pieces, group);
     outer: for (const i of members) {
-      const { col, row } = cellOf(i, L.cols);
-      const neighbors: [number, number, number][] = [];
-      if (col > 0) neighbors.push([i - 1, -L.pw, 0]);
-      if (col < L.cols - 1) neighbors.push([i + 1, L.pw, 0]);
-      if (row > 0) neighbors.push([i - L.cols, 0, -L.ph]);
-      if (row < L.rows - 1) neighbors.push([i + L.cols, 0, L.ph]);
-      for (const [n, ex, ey] of neighbors) {
+      for (const { i: n, dx: ex, dy: ey } of L.geoms[i].neighbors) {
         const np = pieces[n];
         if (np.group === group || np.tray) continue;
         const dx = np.x - (pieces[i].x + ex);
@@ -307,7 +349,7 @@ function ringSlots(L: Layout, slotW: number, slotH: number, n: number) {
 
 /** 建立新局：所有拼片各自成組並散放在拼盤四周 */
 export function newPieces(L: Layout, seed: number): PieceState[] {
-  const n = L.cols * L.rows;
+  const n = L.geoms.length;
   const pieces: PieceState[] = Array.from({ length: n }, (_, i) => ({ x: 0, y: 0, group: i, locked: false }));
   arrangeAround(pieces, L, pieces.map((_, i) => i), seed);
   return pieces;
@@ -319,13 +361,13 @@ export function tableBounds(pieces: PieceState[], L: Layout) {
   let minY = 0;
   let maxX = L.boardW;
   let maxY = L.boardH;
-  for (const p of pieces) {
-    if (p.tray) continue;
+  pieces.forEach((p, i) => {
+    if (p.tray) return;
     minX = Math.min(minX, p.x);
     minY = Math.min(minY, p.y);
-    maxX = Math.max(maxX, p.x + L.pw);
-    maxY = Math.max(maxY, p.y + L.ph);
-  }
+    maxX = Math.max(maxX, p.x + L.geoms[i].w);
+    maxY = Math.max(maxY, p.y + L.geoms[i].h);
+  });
   return { minX, minY, maxX, maxY };
 }
 
@@ -413,7 +455,7 @@ export function withTrayFallback(pieces: PieceState[], L: Layout, order: number[
 }
 
 /** 拼片的繪製留白（卡榫凸出的部分） */
-export const piecePad = (L: Layout) => TAB_EXTENT * Math.min(L.pw, L.ph) + 4;
+export const piecePad = (L: Layout) => TAB_EXTENT * L.unit + 4;
 
 export interface TrayGeometry {
   cols: number;

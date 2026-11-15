@@ -1,12 +1,10 @@
 // Canvas 拼圖遊戲：繪製、拖曳、縮放平移、吸附與完成判定。
+import { makeIrregularLayout, type Silhouette } from '../core/irregular';
 import {
-  correctPos,
   dropGroup,
   enterTray,
   gatherToTray,
-  generateEdges,
   isComplete,
-  isEdgePiece,
   leaveTray,
   makeLayout,
   moveGroup,
@@ -19,10 +17,8 @@ import {
   trayGeometry,
   trayRowCellAt,
   trayRowGeometry,
-  tracePiece,
   withTrayFallback,
   type Layout,
-  type PieceEdges,
   type PieceState,
 } from '../core/puzzle';
 import type { GameProgress } from '../core/storage';
@@ -35,6 +31,8 @@ export interface GameOptions {
   difficultyId: string;
   cols: number;
   rows: number;
+  /** 異型切割：不給就是經典（格狀）切割 */
+  cut?: { silhouette: Silhouette };
   progress: GameProgress | null;
   /** 新局的拼片放在托盤；續玩舊進度時以進度為準 */
   startInTray: boolean;
@@ -51,7 +49,6 @@ export class PuzzleGame {
   readonly L: Layout;
   readonly seed: number;
   readonly pieces: PieceState[];
-  private readonly edges: PieceEdges[];
   private readonly sprites: Sprite[] = [];
   private readonly shadows: Sprite[] = [];
   private readonly paths: Path2D[] = [];
@@ -92,10 +89,10 @@ export class PuzzleGame {
   private resizeObs: ResizeObserver;
 
   constructor(private readonly o: GameOptions) {
-    this.L = makeLayout(o.cols, o.rows, o.image.naturalWidth / o.image.naturalHeight);
     const prog = o.progress && o.progress.pieces.length === o.cols * o.rows ? o.progress : null;
     this.seed = prog ? prog.seed : Math.floor(Math.random() * 2 ** 31);
-    this.edges = generateEdges(o.cols, o.rows, this.seed);
+    const aspect = o.image.naturalWidth / o.image.naturalHeight;
+    this.L = o.cut ? makeIrregularLayout(o.cols, o.rows, aspect, this.seed, o.cut.silhouette) : makeLayout(o.cols, o.rows, aspect, this.seed);
     this.pieces = prog
       ? prog.pieces.map(([x, y, group, locked]) => ({ x, y, group, locked: locked === 1 }))
       : newPieces(this.L, this.seed);
@@ -103,7 +100,7 @@ export class PuzzleGame {
     for (const i of this.trayOrder) this.pieces[i].tray = true;
     this.trayOpen = this.trayOrder.length > 0;
     this.elapsedBase = prog ? prog.elapsedMs : 0;
-    this.isEdge = this.pieces.map((_, i) => isEdgePiece(i, o.cols, o.rows));
+    this.isEdge = this.L.geoms.map((g) => g.edge);
     this.pad = piecePad(this.L);
     this.rebuildZOrder();
 
@@ -178,13 +175,13 @@ export class PuzzleGame {
     const sx = image.naturalWidth / L.boardW;
     const sy = image.naturalHeight / L.boardH;
     for (let i = 0; i < this.pieces.length; i++) {
-      const { x: x0, y: y0 } = correctPos(L, i);
+      const geom = L.geoms[i];
       const path = new Path2D();
-      tracePiece(path, this.edges[i], L.pw, L.ph);
+      geom.trace(path);
       this.paths.push(path);
 
-      const w = Math.ceil((L.pw + pad * 2) * res);
-      const h = Math.ceil((L.ph + pad * 2) * res);
+      const w = Math.ceil((geom.w + pad * 2) * res);
+      const h = Math.ceil((geom.h + pad * 2) * res);
       const mk = (): Sprite => (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h }));
       // 陰影與圖片分成兩張：同組拼片繪製時先畫完所有陰影再畫圖片，鄰片的陰影才不會蓋到凸起
       const sc = mk();
@@ -211,10 +208,10 @@ export class PuzzleGame {
       // 圖片
       g.save();
       g.clip(path);
-      const bx = x0 - pad;
-      const by = y0 - pad;
-      const bw = L.pw + pad * 2;
-      const bh = L.ph + pad * 2;
+      const bx = geom.x - pad;
+      const by = geom.y - pad;
+      const bw = geom.w + pad * 2;
+      const bh = geom.h + pad * 2;
       g.drawImage(image, bx * sx, by * sy, bw * sx, bh * sy, -pad, -pad, bw, bh);
       // 立體邊緣
       g.lineWidth = 2;
@@ -468,7 +465,7 @@ export class PuzzleGame {
   /** 把托盤裡的拼片拿到桌面上（以指標位置為拼片中心）並開始拖曳 */
   private pickFromTray(index: number, pt: { x: number; y: number }, pointerId: number) {
     const w = this.toWorld(pt.x, pt.y);
-    if (!leaveTray(this.pieces, this.trayOrder, index, w.x - this.L.pw / 2, w.y - this.L.ph / 2)) return;
+    if (!leaveTray(this.pieces, this.trayOrder, index, w.x - this.L.geoms[index].w / 2, w.y - this.L.geoms[index].h / 2)) return;
     const group = this.pieces[index].group;
     this.drag = { group, wx: w.x, wy: w.y, pointerId, px: pt.x, py: pt.y };
     this.trayHot = this.inTray(pt);
@@ -487,13 +484,13 @@ export class PuzzleGame {
     if (this.bottomTray) {
       const limit = this.toWorld(0, r.y - 8).y;
       let bottom = -Infinity;
-      for (const i of members) bottom = Math.max(bottom, this.pieces[i].y + this.L.ph);
+      for (const i of members) bottom = Math.max(bottom, this.pieces[i].y + this.L.geoms[i].h);
       if (bottom > limit) moveGroup(this.pieces, group, 0, limit - bottom);
       return;
     }
     const limit = this.toWorld(r.x - 8, 0).x;
     let right = -Infinity;
-    for (const i of members) right = Math.max(right, this.pieces[i].x + this.L.pw);
+    for (const i of members) right = Math.max(right, this.pieces[i].x + this.L.geoms[i].w);
     if (right > limit) moveGroup(this.pieces, group, limit - right, 0);
   }
 
@@ -544,7 +541,8 @@ export class PuzzleGame {
         if (p.tray || this.isHidden(i)) continue;
         const lx = wx - p.x;
         const ly = wy - p.y;
-        if (lx < -this.pad || ly < -this.pad || lx > this.L.pw + this.pad || ly > this.L.ph + this.pad) continue;
+        const geom = this.L.geoms[i];
+        if (lx < -this.pad || ly < -this.pad || lx > geom.w + this.pad || ly > geom.h + this.pad) continue;
         if (this.hitCtx.isPointInPath(this.paths[i], lx, ly)) return i;
       }
     }
@@ -739,10 +737,20 @@ export class PuzzleGame {
 
     // 拼盤
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.fillRect(0, 0, L.boardW, L.boardH);
     ctx.lineWidth = 3 / cam.s;
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.strokeRect(0, 0, L.boardW, L.boardH);
+    if (L.outline) {
+      // 異形輪廓：拼盤只有輪廓內的區域
+      ctx.beginPath();
+      L.outline.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    } else {
+      ctx.fillRect(0, 0, L.boardW, L.boardH);
+      ctx.strokeRect(0, 0, L.boardW, L.boardH);
+    }
 
     // 可視範圍（世界座標）用於略過畫面外的拼片
     const v0 = this.toWorld(0, 0);
@@ -760,17 +768,26 @@ export class PuzzleGame {
 
   private drawGroup(group: number, v0: { x: number; y: number }, v1: { x: number; y: number }) {
     const { ctx, L, pad } = this;
-    const dw = L.pw + pad * 2;
-    const dh = L.ph + pad * 2;
     const visible: number[] = [];
     for (const i of this.membersByGroup().get(group) ?? []) {
       const p = this.pieces[i];
       if (p.tray || this.isHidden(i)) continue;
-      if (p.x + L.pw + pad < v0.x || p.y + L.ph + pad < v0.y || p.x - pad > v1.x || p.y - pad > v1.y) continue;
+      if (p.x + L.geoms[i].w + pad < v0.x || p.y + L.geoms[i].h + pad < v0.y || p.x - pad > v1.x || p.y - pad > v1.y) continue;
       visible.push(i);
     }
-    for (const i of visible) ctx.drawImage(this.shadows[i], this.pieces[i].x - pad, this.pieces[i].y - pad, dw, dh);
-    for (const i of visible) ctx.drawImage(this.sprites[i], this.pieces[i].x - pad, this.pieces[i].y - pad, dw, dh);
+    for (const i of visible) ctx.drawImage(this.shadows[i], this.pieces[i].x - pad, this.pieces[i].y - pad, L.geoms[i].w + pad * 2, L.geoms[i].h + pad * 2);
+    for (const i of visible) ctx.drawImage(this.sprites[i], this.pieces[i].x - pad, this.pieces[i].y - pad, L.geoms[i].w + pad * 2, L.geoms[i].h + pad * 2);
+  }
+
+  /** 把一片拼片畫進托盤的格子（x, y 為格子左上角）：以同一個縮放比例畫，大小不一的拼片置中 */
+  private drawTrayPiece(i: number, x: number, y: number, g: { cellW: number; cellH: number; scale: number }) {
+    const geom = this.L.geoms[i];
+    const dw = (geom.w + this.pad * 2) * g.scale;
+    const dh = (geom.h + this.pad * 2) * g.scale;
+    const ox = x + (g.cellW - dw) / 2;
+    const oy = y + (g.cellH - dh) / 2;
+    this.ctx.drawImage(this.shadows[i], ox, oy, dw, dh);
+    this.ctx.drawImage(this.sprites[i], ox, oy, dw, dh);
   }
 
   private drawTray() {
@@ -799,8 +816,7 @@ export class PuzzleGame {
       for (let k = firstCol * g.rows; k < end; k++) {
         const x = TRAY_MARGIN + Math.floor(k / g.rows) * step - this.trayScroll;
         const y = r.y + TRAY_MARGIN + (k % g.rows) * (g.cellH + g.gap);
-        ctx.drawImage(this.shadows[list[k]], x, y, g.cellW, g.cellH);
-        ctx.drawImage(this.sprites[list[k]], x, y, g.cellW, g.cellH);
+        this.drawTrayPiece(list[k], x, y, g);
       }
       if (g.contentW > viewW) {
         const w = Math.max(24, (viewW * viewW) / g.contentW);
@@ -825,8 +841,7 @@ export class PuzzleGame {
     for (let k = first; k < end; k++) {
       const x = r.x + TRAY_MARGIN + (k % g.cols) * (g.cellW + g.gap);
       const y = this.trayTop + Math.floor(k / g.cols) * step - this.trayScroll;
-      ctx.drawImage(this.shadows[list[k]], x, y, g.cellW, g.cellH);
-      ctx.drawImage(this.sprites[list[k]], x, y, g.cellW, g.cellH);
+      this.drawTrayPiece(list[k], x, y, g);
     }
     if (g.contentH > viewH) {
       const h = Math.max(24, (viewH * viewH) / g.contentH);

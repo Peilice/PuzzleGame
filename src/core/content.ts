@@ -11,6 +11,8 @@ export interface Category {
   collectorName: string;
   /** 獨立入口：不出現在「選擇分類」列表，由主畫面另設按鈕進入（暫時與其他分類分開） */
   standalone?: boolean;
+  /** 切割方式；不填為經典（格狀）切割，irregular 為異型（不規則）切割 */
+  cut?: 'irregular';
 }
 
 export interface Difficulty {
@@ -34,6 +36,8 @@ export interface PuzzleImage {
   artist?: string;
   license?: string;
   sourceUrl?: string;
+  /** 異型切割的拼盤輪廓（見 core/irregular.ts 的 SILHOUETTES）；不填為整個矩形 */
+  silhouette?: string;
 }
 
 export interface Content {
@@ -85,6 +89,7 @@ export const CATEGORIES: Category[] = [
     name: '異型',
     original: false,
     standalone: true,
+    cut: 'irregular',
     titleNames: ['圖案初學者', '拼貼學徒', '剪紙達人', '花窗工匠', '織紋設計師', '拼花匠師', '萬花筒玩家', '幾何大師', '曼陀羅行者', '異形傳說'],
     collectorName: '異型收藏家',
   },

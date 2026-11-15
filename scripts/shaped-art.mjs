@@ -391,15 +391,15 @@ function fairIsle() {
 // ---------------------------------------------------------------------------
 
 export const SHAPED_ART = [
-  { name: '八角星磚', make: islamicStars },
-  { name: '生命之花', make: flowerOfLife },
-  { name: '彩繪生命之花', make: paintedFlower },
-  { name: '萬花曼陀羅', make: mandala },
-  { name: '琉璃彩窗', make: stainedGlass },
-  { name: '青海波', make: seigaiha },
-  { name: '包浩斯方磚', make: bauhaus },
-  { name: '立方積木', make: tumblingBlocks },
-  { name: '北歐編織', make: fairIsle },
+  { name: '八角星磚', silhouette: 'octagon', make: islamicStars },
+  { name: '生命之花', silhouette: 'circle', make: flowerOfLife },
+  { name: '彩繪生命之花', silhouette: 'hexagon', make: paintedFlower },
+  { name: '萬花曼陀羅', silhouette: 'ellipse', make: mandala },
+  { name: '琉璃彩窗', silhouette: 'arch', make: stainedGlass },
+  { name: '青海波', silhouette: 'rect', make: seigaiha },
+  { name: '包浩斯方磚', silhouette: 'rounded', make: bauhaus },
+  { name: '立方積木', silhouette: 'diamond', make: tumblingBlocks },
+  { name: '北歐編織', silhouette: 'rect', make: fairIsle },
 ];
 
 /** 輸出 shaped-XX.webp 與縮圖到 outDir，回傳 images.json 用的項目 */
@@ -414,7 +414,7 @@ export async function renderShaped(outDir, only) {
     const base = sharp(buf, { density: 72 }).resize(W, H);
     await base.clone().webp({ quality: 88 }).toFile(path.join(outDir, `${id}.webp`));
     await base.clone().resize(THUMB_W, THUMB_H).webp({ quality: 80 }).toFile(path.join(outDir, `${id}-thumb.webp`));
-    entries.push({ id, category: 'shaped', name: SHAPED_ART[i].name, src: `images/${id}.webp`, thumb: `images/${id}-thumb.webp`, artist: '程式生成', license: 'CC0' });
+    entries.push({ id, category: 'shaped', name: SHAPED_ART[i].name, src: `images/${id}.webp`, thumb: `images/${id}-thumb.webp`, artist: '程式生成', license: 'CC0', silhouette: SHAPED_ART[i].silhouette });
   }
   return entries;
 }
