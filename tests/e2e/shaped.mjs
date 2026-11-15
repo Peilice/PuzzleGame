@@ -68,6 +68,12 @@ for (const [image, sil] of shots) {
   checks[`${sil}_pieceCount`] = info.n === 154 && info.geoms === 154 && info.sprites === 154;
   checks[`${sil}_outline`] = info.outline === (sil !== 'rect');
   await page.screenshot({ path: `${OUT}/shaped-${sil}-table.png` });
+  // 預覽圖要和拼盤同形：異形輪廓依輪廓裁切，矩形維持原本的相框
+  await page.click('.preview-btn');
+  await page.waitForSelector('.preview:not(.hidden)');
+  const prev = await page.$eval('.preview', (w) => ({ shaped: w.classList.contains('shaped'), clip: w.querySelector('img').style.clipPath }));
+  checks[`${sil}_previewShape`] = sil === 'rect' ? !prev.shaped && prev.clip === '' : prev.shaped && prev.clip.startsWith('polygon(');
+  await page.screenshot({ path: `${OUT}/shaped-${sil}-preview.png` });
   allErrors.push(...errors);
   await page.close();
 }
@@ -144,7 +150,7 @@ for (const [image, sil] of shots) {
   checks.pickedNearCenter = Math.abs(pos.x + (await page.evaluate((i) => window.__game.L.geoms[i].w, first)) / 2 - (await page.evaluate(() => window.__game.L.boardW / 2))) < 60;
 
   // 存檔續玩：重新載入後同一局的切法、位置要完全一樣
-  await sleep(1500);
+  await sleep(3000); // 自動存檔延遲 800ms，再留足寫入 IndexedDB 的時間
   const before = await page.evaluate(() => {
     const g = window.__game;
     // 托盤內拼片的座標存檔時會改寫成拼盤外圍（既有設計），所以只比桌面上的拼片與托盤順序

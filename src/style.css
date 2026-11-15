@@ -759,6 +759,14 @@ h3 {
   height: auto;
   pointer-events: none;
 }
+/* 異形輪廓：圖片以 clip-path 裁成輪廓（見 ui/screens/game.ts 的 shapePreview），矩形相框改成沿輪廓的描邊與陰影 */
+.preview.shaped {
+  border: none;
+  outline: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 0 1.5px #ece6d8) drop-shadow(0 0 1.5px #ece6d8) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+}
 .preview-close {
   position: absolute;
   top: 4px;

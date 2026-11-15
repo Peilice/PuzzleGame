@@ -40,6 +40,16 @@ function cutOf(img: PuzzleImage) {
   return { silhouette: isSilhouette(img.silhouette) ? img.silhouette : ('rect' as const) };
 }
 
+/** 異形輪廓的局：預覽圖也依輪廓裁切（與拼盤一致），並改用沿輪廓的描邊取代矩形相框 */
+function shapePreview(win: HTMLElement, game: PuzzleGame) {
+  const outline = game.L.outline;
+  if (!outline) return;
+  const { boardW, boardH } = game.L;
+  const pts = outline.map(([x, y]) => `${((x / boardW) * 100).toFixed(2)}% ${((y / boardH) * 100).toFixed(2)}%`);
+  win.classList.add('shaped');
+  win.querySelector<HTMLElement>('img')!.style.clipPath = `polygon(${pts.join(',')})`;
+}
+
 function gameMarkup(img: PuzzleImage) {
   return `
     <main class="screen game">
@@ -152,6 +162,7 @@ export async function startGame(img: PuzzleImage, diff: Difficulty) {
     return;
   }
 
+  shapePreview(q('.preview'), game);
   const autosave = createAutosave(game);
   const total = pieceCount(diff);
   const timerEl = q('.timer');
