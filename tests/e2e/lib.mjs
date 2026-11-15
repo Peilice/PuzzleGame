@@ -45,7 +45,7 @@ export async function newPage(browser, viewport = { width: 1280, height: 800 }) 
  * 從主畫面一路點進遊戲並等到可以操作。
  * image：第幾張圖（從 0 起算）；difficulty：第幾個難度，-1 為最後一個；已有進度時會續玩。
  * inTray：新局的拼片放在托盤（遊戲預設）；測試預設為 false（散在桌面），因為多數測試是從桌面座標拖拼片。
- * shaped：從主畫面的「異型拼圖」進入（異型分類不在一般的分類列表裡）。
+ * shaped：以網址 #/shaped 進入（異型是獨立入口，主畫面與一般分類列表都沒有它）。
  */
 export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0, inTray = false, shaped = false } = {}) {
   await page.goto(url, { waitUntil: 'networkidle0' });
@@ -60,9 +60,8 @@ export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0,
   }
   await page.click('.back');
   if (shaped) {
-    // 異型拼圖是獨立入口：主畫面的「異型拼圖」按鈕直接進圖片列表
-    await page.waitForSelector('.shaped');
-    await page.click('.shaped');
+    // 異型拼圖是獨立入口：主畫面沒有連結，改網址的 hash（#/shaped）直接進圖片列表
+    await page.evaluate(() => (location.hash = '#/shaped'));
   } else {
     await page.waitForSelector('.play');
     await page.click('.play');

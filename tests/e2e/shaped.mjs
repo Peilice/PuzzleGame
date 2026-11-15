@@ -33,20 +33,61 @@ const grabPoint = (page, i) =>
 // ---------------------------------------------------------------- 入口與列表
 {
   const { page, errors } = await newPage(browser);
+  // 主畫面沒有異型的入口，一般分類列表也沒有
   await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
-  checks.homeHasShapedButton = !!(await page.$('.shaped'));
+  checks.homeHasNoShapedButton = !(await page.$('.shaped')) && !(await page.$$eval('.home-bar button, .hero-actions button', (b) => b.some((x) => x.textContent.includes('異型'))));
+  checks.homeUrlHasNoHash = !(await page.evaluate(() => location.hash));
   await page.click('.play');
   await page.waitForSelector('.cat-card');
   checks.categoryListHasNoShaped = (await page.$$eval('.cat-card h2', (h) => h.map((x) => x.textContent))).every((t) => t !== '異型');
   checks.categoryListHasFive = (await page.$$('.cat-card')).length === 5;
   await page.click('.back');
-  await page.waitForSelector('.shaped');
-  await page.click('.shaped');
+  await page.waitForSelector('.play');
+
+  // 在已開啟的頁面手動改網址 → 進入異型圖片列表，網址保持 #/shaped
+  await page.evaluate(() => (location.hash = '#/shaped'));
   await page.waitForSelector('.img-card');
-  checks.shapedListNine = (await page.$$('.img-card')).length === 9;
-  checks.shapedHeaderName = (await page.$eval('.screen h1, .screen header h1, header h1', (h) => h.textContent).catch(() => '')) === '異型';
+  checks.shapedByHashChange = (await page.$$('.img-card')).length === 9 && (await page.evaluate(() => location.hash)) === '#/shaped';
+  checks.shapedHeaderName = (await page.$eval('header h1, .screen h1', (h) => h.textContent).catch(() => '')) === '異型';
+  // 返回主畫面，網址的 hash 要清掉（否則重新整理又會跳回異型）
   await page.click('.back');
-  checks.shapedBackGoesHome = !!(await page.waitForSelector('.shaped', { timeout: 3000 }).catch(() => null));
+  await page.waitForSelector('.play');
+  checks.shapedBackGoesHome = !(await page.$('.shaped')) && (await page.evaluate(() => location.hash)) === '';
+  allErrors.push(...errors);
+  await page.close();
+}
+
+// 直接開網址（全新載入）就停在異型圖片列表；重新整理後仍然是
+{
+  const { page, errors } = await newPage(browser);
+  await page.goto(DEV_URL + '#/shaped', { waitUntil: 'networkidle0' });
+  await page.waitForSelector('.img-card', { timeout: 10000 });
+  checks.shapedByDirectUrl = (await page.$$('.img-card')).length === 9 && !(await page.$('.hero'));
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.waitForSelector('.img-card', { timeout: 10000 });
+  checks.shapedSurvivesReload = (await page.$$('.img-card')).length === 9;
+  // 其他 hash 不理它，照常顯示主畫面
+  await page.goto(DEV_URL + '#/whatever', { waitUntil: 'networkidle0' });
+  await page.reload({ waitUntil: 'networkidle0' });
+  checks.unknownHashShowsHome = !!(await page.$('.play'));
+  allErrors.push(...errors);
+  await page.close();
+}
+
+// 主畫面的隨機主視覺不會洩漏異型的圖（多載入幾次，機率上若有混入一定會中）
+{
+  const { page, errors } = await newPage(browser);
+  let leaked = 0;
+  let exhibit = '';
+  for (let k = 0; k < 12; k++) {
+    await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
+    await page.reload({ waitUntil: 'networkidle0' });
+    const hero = await page.$eval('.hero', (h) => h.style.getPropertyValue('--hero'));
+    if (hero.includes('shaped-')) leaked++;
+    exhibit = await page.$eval('.exhibit', (x) => x.textContent);
+  }
+  checks.heroNeverShaped = leaked === 0;
+  checks.exhibitCountExcludesShaped = exhibit.includes('50');
   allErrors.push(...errors);
   await page.close();
 }
@@ -159,8 +200,11 @@ for (const [image, sil] of shots) {
   });
   await page.evaluate(() => window.__game.destroy?.());
   await page.reload({ waitUntil: 'networkidle0' });
-  await page.waitForSelector('.continue:not(.hidden)', { timeout: 10000 });
-  await page.click('.continue');
+  // 網址仍是 #/shaped，重新整理後回到異型圖片列表；選同一張圖，難度視窗會提供「繼續」
+  await page.waitForSelector('.img-card', { timeout: 10000 });
+  await page.click('.img-card:nth-child(4)');
+  await page.waitForSelector('.diff-modal');
+  await page.$$eval('.diff-row', (rows) => rows[0].querySelector('.resume').click());
   await page.waitForFunction(() => window.__game, { timeout: 60000 });
   await sleep(500);
   const after = await page.evaluate(() => {

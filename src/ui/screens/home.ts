@@ -4,7 +4,6 @@ import { asset, el, esc, mount } from '../dom';
 import { nav } from '../nav';
 import { content, defById, store, titleBadge } from '../state';
 import { S } from '../strings';
-import { SHAPED_CATEGORY } from './select';
 
 // 畫框＋拼圖榫（與 PWA 圖示同一組圖形，見 scripts/make-icons.mjs）
 const LOGO = `<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M6 8H42V21A4.2 4.2 0 1 1 42 27V40H6Z"/><path d="M6 36 17 22l6 8 5-6 14 14"/><circle cx="15" cy="16" r="2.6" fill="var(--accent)" stroke="none"/></svg>`;
@@ -12,8 +11,10 @@ const LOGO = `<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke
 export function showHome() {
   const equipped = defById.get(store.save.profile.equippedTitle);
   // 主視覺：每次進主畫面隨機挑一幅
-  const hero = content.images[Math.floor(Math.random() * content.images.length)];
-  const hasShaped = content.images.some((i) => i.category === SHAPED_CATEGORY);
+  // 獨立入口的分類（只能靠網址進入）不出現在主畫面：主視覺與館藏數都不計入
+  const hidden = new Set(content.categories.filter((c) => c.standalone).map((c) => c.id));
+  const shown = content.images.filter((i) => !hidden.has(i.category));
+  const hero = shown[Math.floor(Math.random() * shown.length)];
   const node = el(`
     <main class="screen home">
       <nav class="home-bar">
@@ -28,11 +29,10 @@ export function showHome() {
         <div class="hero-text">
           <h1 class="app-name">${S.appName}</h1>
           <p class="tagline">${S.appTagline}</p>
-          <p class="exhibit">${S.exhibition(content.images.length)}</p>
+          <p class="exhibit">${S.exhibition(shown.length)}</p>
           <div class="equipped"><span class="label">${S.equipped}</span>${titleBadge(equipped)}</div>
           <div class="hero-actions">
             <button class="btn primary big play">${S.play}</button>
-            ${hasShaped ? `<button class="btn big shaped">${S.playShaped}</button>` : ''}
             <button class="btn big continue hidden">${S.continueLast}</button>
           </div>
         </div>
@@ -44,9 +44,7 @@ export function showHome() {
     const url = new URL(asset(hero.src), document.baseURI).href;
     node.querySelector<HTMLElement>('.hero')!.style.setProperty('--hero', `url("${url}")`);
   }
-  node.querySelector('.play')!.addEventListener('click', nav.categories);
-  node.querySelector('.shaped')?.addEventListener('click', nav.shaped);
-  node.querySelector('.titles')!.addEventListener('click', nav.titles);
+  node.querySelector('.play')!.addEventListener('click', nav.categories);  node.querySelector('.titles')!.addEventListener('click', nav.titles);
   node.querySelector('.stats')!.addEventListener('click', nav.stats);
   node.querySelector('.settings')!.addEventListener('click', nav.settings);
   mount(node);

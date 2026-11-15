@@ -15,10 +15,25 @@ import { S } from './strings';
 /** 存檔異常的提示要停久一點，讓玩家來得及讀完 */
 const ISSUE_TOAST_MS = 9000;
 
+/** 獨立入口「異型拼圖」的網址：主畫面沒有連結，只能靠這個網址進入（hash 路由，靜態部署與離線都能用） */
+export const SHAPED_HASH = '#/shaped';
+
+/** 改網址的 hash：用 replaceState，不新增瀏覽紀錄，也不會觸發 hashchange */
+function setHash(hash: string) {
+  if (location.hash === hash) return;
+  history.replaceState(null, '', location.pathname + location.search + hash);
+}
+
 const routes: Nav = {
-  home: showHome,
+  home: () => {
+    setHash('');
+    showHome();
+  },
   categories: showCategories,
-  shaped: () => void showImages(SHAPED_CATEGORY),
+  shaped: () => {
+    setHash(SHAPED_HASH);
+    void showImages(SHAPED_CATEGORY);
+  },
   images: (categoryId) => void showImages(categoryId),
   game: (img, diff) => void startGame(img, diff),
   titles: () => showTitles(),
@@ -36,6 +51,12 @@ export async function startApp(initial: SaveData, issue: SaveIssue | null = null
   // 沒有變動就不寫入，避免每次啟動都重寫存檔
   if (unlocked.length || equippedMissing) await persist();
   applySettings();
-  nav.home();
+  // 手動改網址（輸入或貼上 #/shaped）時也要導向；其他 hash 不處理
+  window.addEventListener('hashchange', () => {
+    if (location.hash === SHAPED_HASH) nav.shaped();
+    else if (!location.hash) nav.home();
+  });
+  if (location.hash === SHAPED_HASH) nav.shaped();
+  else nav.home();
   if (issue) toast(esc(S.saveIssue[issue]), 'error', ISSUE_TOAST_MS);
 }
