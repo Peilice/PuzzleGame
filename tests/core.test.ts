@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATEGORIES, DIFFICULTIES, mainImages, pieceCount, type Content, type PuzzleImage } from '../src/core/content';
+import { CATEGORIES, DIFFICULTIES, pieceCount, type Content, type PuzzleImage } from '../src/core/content';
 import { createSave, migrate, recordCompletion, type SaveData } from '../src/core/save';
 import { computeStats } from '../src/core/stats';
 import { toProgress } from '../src/core/storage';
@@ -107,42 +107,26 @@ describe('存檔', () => {
 describe('稱號', () => {
   const content = makeContent();
 
-  it('目前可見的稱號共 87 個（獨立入口的異型稱號未解鎖前不計）', () => {
+  it('目前可見的稱號共 96 個', () => {
     const save = createSave();
     const { defs, stats } = run(save, content);
-    expect(visibleTitles(save, stats, content, defs)).toHaveLength(87);
+    expect(visibleTitles(save, stats, content, defs)).toHaveLength(96);
   });
 
-  it('獨立入口（異型）的專屬稱號：定義存在可以解鎖，但解鎖前不在圖鑑，解鎖後才顯示', () => {
+  it('異型是一般分類：專屬稱號一開始就在圖鑑，「全部完成」類與各難度統計都計入異型', () => {
     const save = createSave();
     const r0 = run(save, content);
-    expect(r0.defs.some((d) => d.id === 'cat-shaped-1')).toBe(true);
     const ids0 = visibleTitles(save, r0.stats, content, r0.defs).map((v) => v.def.id);
-    expect(ids0.some((id) => id.startsWith('cat-shaped-') || id === 'col-cat-shaped')).toBe(false);
+    expect(ids0).toEqual(expect.arrayContaining(['cat-shaped-1', 'col-cat-shaped', 'col-all-categories']));
 
-    const r1 = run(complete(save, 'shaped-01', 0), content);
-    expect(r1.newlyUnlocked).toContain('cat-shaped-1');
-    const ids1 = visibleTitles(r1.save, r1.stats, content, r1.defs).map((v) => v.def.id);
-    expect(ids1).toContain('cat-shaped-1');
-    expect(ids1).not.toContain('cat-shaped-3'); // 還沒解鎖的等級仍然隱藏
-  });
-
-  it('「全部完成」類稱號不含獨立入口：只拼一般分類也能拿到，且不產生「萬象通曉」', () => {
     let s = createSave();
     for (const img of content.images) if (img.category !== 'shaped') for (let d = 0; d < 4; d++) s = complete(s, img.id, d);
-    const r = run(s, content);
-    expect(r.newlyUnlocked).toEqual(expect.arrayContaining(['col-all-images', 'col-perfect']));
-    expect(r.defs.some((d) => d.id === 'col-all-categories')).toBe(false);
-  });
+    expect(run(s, content).newlyUnlocked).not.toEqual(expect.arrayContaining(['col-all-images']));
+    for (const img of content.images) if (img.category === 'shaped') for (let d = 0; d < 4; d++) s = complete(s, img.id, d);
+    expect(run(s, content).newlyUnlocked).toEqual(expect.arrayContaining(['col-all-images', 'col-perfect', 'col-all-categories']));
 
-  it('各難度的完成組合數不含獨立入口，分類統計與總進度仍計入', () => {
-    let s = complete(createSave(), 'shaped-01', 0);
-    s = complete(s, 'food-01', 0);
-    const st = computeStats(s, content);
-    expect(st.combosByDifficulty.get('d150')).toBe(1);
-    expect(st.combosByCategory.get('shaped')).toBe(1);
-    expect(st.totalPieces).toBe(154 * 2);
-    expect(mainImages(content)).toHaveLength(50);
+    const st = computeStats(complete(complete(createSave(), 'shaped-01', 0), 'food-01', 0), content);
+    expect(st.combosByDifficulty.get('d150')).toBe(2);
   });
 
   it('分類線計算不重複的圖片 × 難度組合', () => {

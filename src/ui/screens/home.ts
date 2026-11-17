@@ -1,5 +1,4 @@
 // 主畫面。
-import { mainImages } from '../../core/content';
 import { allProgress } from '../../core/storage';
 import { asset, el, esc, mount } from '../dom';
 import { nav } from '../nav';
@@ -12,9 +11,7 @@ const LOGO = `<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke
 export function showHome() {
   const equipped = defById.get(store.save.profile.equippedTitle);
   // 主視覺：每次進主畫面隨機挑一幅
-  // 獨立入口的分類（只能靠網址進入）不出現在主畫面：主視覺與館藏數都不計入
-  const shown = mainImages(content);
-  const hero = shown[Math.floor(Math.random() * shown.length)];
+  const hero = content.images[Math.floor(Math.random() * content.images.length)];
   const node = el(`
     <main class="screen home">
       <nav class="home-bar">
@@ -29,7 +26,7 @@ export function showHome() {
         <div class="hero-text">
           <h1 class="app-name">${S.appName}</h1>
           <p class="tagline">${S.appTagline}</p>
-          <p class="exhibit">${S.exhibition(shown.length)}</p>
+          <p class="exhibit">${S.exhibition(content.images.length)}</p>
           <div class="equipped"><span class="label">${S.equipped}</span>${titleBadge(equipped)}</div>
           <div class="hero-actions">
             <button class="btn primary big play">${S.play}</button>

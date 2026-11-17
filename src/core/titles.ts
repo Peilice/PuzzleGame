@@ -1,6 +1,6 @@
 // 稱號系統：由內容資料自動產生稱號定義，並以純函式判定解鎖 / 可見。
 // 稱號名稱屬於內容資料，放在這裡與 content.ts；條件說明等介面文字由 ui/strings.ts 依 TitleCondition 產生。
-import { mainImages, type Content } from './content';
+import type { Content } from './content';
 import { categoryCap, type Stats } from './stats';
 import { comboKey, type SaveData } from './save';
 
@@ -30,8 +30,6 @@ export interface TitleDef {
   condition: TitleCondition;
   /** 「全部完成」類：內容增加後可能不再滿足，需顯示「有新內容尚未完成」 */
   completionType: boolean;
-  /** 獨立入口分類的專屬稱號：未解鎖時不在圖鑑出現（入口只能靠網址進入，不外露），解鎖後照常顯示 */
-  standalone?: boolean;
   /** 依目前內容是否可能達成（不可能時圖鑑不顯示） */
   reachable: (content: Content) => boolean;
   /** 目前是否滿足條件 */
@@ -66,9 +64,7 @@ const always = () => true;
 
 export function buildTitles(content: Content): TitleDef[] {
   const defs: TitleDef[] = [];
-  // 「全部完成」類只看一般分類；獨立入口（只能靠網址進入）的內容不列入，否則一般玩家永遠拿不到
-  const mainCategories = content.categories.filter((c) => !c.standalone);
-  const totalCombos = mainImages(content).length * content.difficulties.length;
+  const totalCombos = content.images.length * content.difficulties.length;
 
   // ① 分類線
   for (const cat of content.categories) {
@@ -81,7 +77,6 @@ export function buildTitles(content: Content): TitleDef[] {
         hidden: false,
         condition: { kind: 'category', category: cat.name, count: t },
         completionType: false,
-        standalone: cat.standalone,
         reachable: (c) => categoryCap(c, cat.id) >= t,
         met: (s) => (s.combosByCategory.get(cat.id) ?? 0) >= t,
         progress: (s) => ({ value: s.combosByCategory.get(cat.id) ?? 0, target: t }),
@@ -141,7 +136,7 @@ export function buildTitles(content: Content): TitleDef[] {
     met: (s) => originals.every((cat) => (s.combosByCategory.get(cat.id) ?? 0) >= 1),
     progress: (s) => ({ value: originals.filter((cat) => (s.combosByCategory.get(cat.id) ?? 0) >= 1).length, target: originals.length }),
   });
-  if (mainCategories.some((c) => !c.original)) {
+  if (content.categories.some((c) => !c.original)) {
     defs.push({
       id: 'col-all-categories',
       name: '萬象通曉',
@@ -151,7 +146,7 @@ export function buildTitles(content: Content): TitleDef[] {
       condition: { kind: 'all-categories' },
       completionType: true,
       reachable: always,
-      met: (s, c) => c.categories.filter((cat) => !cat.standalone).every((cat) => (s.combosByCategory.get(cat.id) ?? 0) >= 1),
+      met: (s, c) => c.categories.every((cat) => (s.combosByCategory.get(cat.id) ?? 0) >= 1),
     });
   }
   for (const cat of content.categories) {
@@ -163,7 +158,6 @@ export function buildTitles(content: Content): TitleDef[] {
       hidden: false,
       condition: { kind: 'collector', category: cat.name },
       completionType: true,
-      standalone: cat.standalone,
       reachable: (c) => categoryCap(c, cat.id) > 0,
       met: (s, c) => (s.combosByCategory.get(cat.id) ?? 0) >= categoryCap(c, cat.id),
       progress: (s, c) => ({ value: s.combosByCategory.get(cat.id) ?? 0, target: categoryCap(c, cat.id) }),
@@ -177,9 +171,9 @@ export function buildTitles(content: Content): TitleDef[] {
     hidden: false,
     condition: { kind: 'all-images' },
     completionType: true,
-    reachable: (c) => mainImages(c).length > 0,
-    met: (s, c) => mainImages(c).every((i) => s.imagesDone.has(i.id)),
-    progress: (s, c) => ({ value: mainImages(c).filter((i) => s.imagesDone.has(i.id)).length, target: mainImages(c).length }),
+    reachable: (c) => c.images.length > 0,
+    met: (s, c) => c.images.every((i) => s.imagesDone.has(i.id)),
+    progress: (s, c) => ({ value: c.images.filter((i) => s.imagesDone.has(i.id)).length, target: c.images.length }),
   });
   defs.push({
     id: 'col-perfect',
@@ -190,7 +184,7 @@ export function buildTitles(content: Content): TitleDef[] {
     condition: { kind: 'perfect' },
     completionType: true,
     reachable: () => totalCombos > 0,
-    met: (s, c) => mainImages(c).every((i) => c.difficulties.every((d) => s.combos.has(comboKey(i.id, d.id)))),
+    met: (s, c) => c.images.every((i) => c.difficulties.every((d) => s.combos.has(comboKey(i.id, d.id)))),
   });
 
   // ⑤ 總進度線
@@ -245,7 +239,6 @@ export function visibleTitles(save: SaveData, stats: Stats, content: Content, de
     const at = save.unlockedTitles[def.id];
     const unlocked = at !== undefined;
     if (!unlocked && !def.reachable(content)) continue;
-    if (!unlocked && def.standalone) continue; // 獨立入口的專屬稱號：解鎖前不外露
     out.push({
       def,
       unlocked,

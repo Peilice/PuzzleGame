@@ -44,12 +44,6 @@ export function refreshTitles(): string[] {
   return ev.newlyUnlocked;
 }
 
-/**
- * 新解鎖的稱號中，要在畫面上宣告（結算清單、通知、音效）的部分。
- * 獨立入口分類的專屬稱號靜默解鎖：照常存檔，但不跳通知，避免洩漏那個只能靠網址進入的入口。
- */
-export const announceable = (ids: string[]) => ids.filter((id) => !defById.get(id)?.standalone);
-
 export function applySettings() {
   const t = TABLE_COLORS.find((c) => c.id === store.save.settings.table) ?? TABLE_COLORS[0];
   document.documentElement.style.setProperty('--table', t.css);

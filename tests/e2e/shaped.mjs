@@ -1,7 +1,7 @@
-// 端對端測試：異型拼圖（獨立入口、不規則切割、異形輪廓、拖曳吸附、托盤、存檔續玩）。
+// 端對端測試：異型拼圖（分類入口、不規則切割、異形輪廓、拖曳吸附、托盤、存檔續玩）。
 // 用法：npm run e2e -- shaped
 import fs from 'node:fs';
-import { drag, launch, newPage, openGame, report, sleep, DEV_URL } from './lib.mjs';
+import { drag, grabPoint, launch, newPage, openGame, report, sleep, DEV_URL } from './lib.mjs';
 
 const OUT = process.argv[2] ?? 'e2e-shots';
 fs.mkdirSync(OUT, { recursive: true });
@@ -9,104 +9,41 @@ const browser = await launch();
 const checks = {};
 const allErrors = [];
 
-/** 第 i 片拼片上、最靠近外框中心且滑鼠真的點得到它（沒被別片蓋住）的點；回傳畫面座標、縮放與該點在拼片內的座標 */
-const grabPoint = (page, i) =>
-  page.evaluate((i) => {
-    const g = window.__game;
-    const geom = g.L.geoms[i];
-    const p = g.pieces[i];
-    let best = null;
-    for (let k = 0; k <= 20; k++) {
-      for (let m = 0; m <= 20; m++) {
-        const lx = (geom.w * k) / 20;
-        const ly = (geom.h * m) / 20;
-        if (!g.hitCtx.isPointInPath(g.paths[i], lx, ly)) continue;
-        if (g.hitTest(p.x + lx, p.y + ly) !== i) continue;
-        const d = Math.hypot(lx - geom.w / 2, ly - geom.h / 2);
-        if (!best || d < best.d) best = { d, lx, ly };
-      }
-    }
-    if (!best) return null;
-    return { from: g.toScreen(p.x + best.lx, p.y + best.ly), home: g.toScreen(geom.x + best.lx, geom.y + best.ly), scale: g.cam.s };
-  }, i);
-
 // ---------------------------------------------------------------- 入口與列表
 {
   const { page, errors } = await newPage(browser);
-  // 主畫面沒有異型的入口，一般分類列表也沒有
+  // 異型是「選擇分類」裡的一般分類，排在最後
   await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
-  checks.homeHasNoShapedButton = !(await page.$('.shaped')) && !(await page.$$eval('.home-bar button, .hero-actions button', (b) => b.some((x) => x.textContent.includes('異型'))));
-  checks.homeUrlHasNoHash = !(await page.evaluate(() => location.hash));
+  checks.exhibitCountIncludesShaped = (await page.$eval('.exhibit', (x) => x.textContent)).includes('59');
   await page.click('.play');
   await page.waitForSelector('.cat-card');
-  checks.categoryListHasNoShaped = (await page.$$eval('.cat-card h2', (h) => h.map((x) => x.textContent))).every((t) => t !== '異型');
-  checks.categoryListHasFive = (await page.$$('.cat-card')).length === 5;
-  await page.click('.back');
-  await page.waitForSelector('.play');
-
-  // 在已開啟的頁面手動改網址 → 進入異型圖片列表，網址保持 #/shaped
-  await page.evaluate(() => (location.hash = '#/shaped'));
+  const names = await page.$$eval('.cat-card h2', (h) => h.map((x) => x.textContent));
+  checks.categoryListHasSix = names.length === 6;
+  checks.shapedIsLastCategory = names.at(-1) === '異型';
+  await page.$$eval('.cat-card', (cards) => cards.at(-1).click());
   await page.waitForSelector('.img-card');
-  checks.shapedByHashChange = (await page.$$('.img-card')).length === 9 && (await page.evaluate(() => location.hash)) === '#/shaped';
+  checks.shapedListNine = (await page.$$('.img-card')).length === 9;
   checks.shapedHeaderName = (await page.$eval('header h1, .screen h1', (h) => h.textContent).catch(() => '')) === '異型';
-  // 返回主畫面，網址的 hash 要清掉（否則重新整理又會跳回異型）
+  // 返回回到分類列表
   await page.click('.back');
-  await page.waitForSelector('.play');
-  checks.shapedBackGoesHome = !(await page.$('.shaped')) && (await page.evaluate(() => location.hash)) === '';
+  checks.shapedBackGoesCategories = !!(await page.waitForSelector('.cat-card', { timeout: 3000 }).catch(() => null));
   allErrors.push(...errors);
   await page.close();
 }
 
-// 稱號圖鑑與統計頁沒有任何異型的痕跡（沒玩過異型的人看不到）
+// 稱號圖鑑與統計頁照常列出異型
 {
   const { page, errors } = await newPage(browser);
   await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
-  const leaks = ['異型', '圖案初學者', '拼貼學徒', '剪紙達人', '花窗工匠', '織紋設計師', '拼花匠師', '萬花筒玩家', '幾何大師', '曼陀羅行者', '異形傳說', '萬象通曉'];
   await page.click('.titles');
   await page.waitForSelector('.title-grid');
   const titlesText = await page.$eval('.screen', (n) => n.textContent);
-  checks.titlesPageHidesShaped = leaks.every((w) => !titlesText.includes(w));
+  checks.titlesPageShowsShaped = ['圖案初學者', '異型收藏家', '萬象通曉'].every((w) => titlesText.includes(w));
   await page.click('.back');
   await page.waitForSelector('.stats');
   await page.click('.stats');
   await page.waitForSelector('.stats-screen');
-  const statsText = await page.$eval('.stats-screen', (n) => n.textContent);
-  checks.statsPageHidesShaped = !statsText.includes('異型');
-  allErrors.push(...errors);
-  await page.close();
-}
-
-// 直接開網址（全新載入）就停在異型圖片列表；重新整理後仍然是
-{
-  const { page, errors } = await newPage(browser);
-  await page.goto(DEV_URL + '#/shaped', { waitUntil: 'networkidle0' });
-  await page.waitForSelector('.img-card', { timeout: 10000 });
-  checks.shapedByDirectUrl = (await page.$$('.img-card')).length === 9 && !(await page.$('.hero'));
-  await page.reload({ waitUntil: 'networkidle0' });
-  await page.waitForSelector('.img-card', { timeout: 10000 });
-  checks.shapedSurvivesReload = (await page.$$('.img-card')).length === 9;
-  // 其他 hash 不理它，照常顯示主畫面
-  await page.goto(DEV_URL + '#/whatever', { waitUntil: 'networkidle0' });
-  await page.reload({ waitUntil: 'networkidle0' });
-  checks.unknownHashShowsHome = !!(await page.$('.play'));
-  allErrors.push(...errors);
-  await page.close();
-}
-
-// 主畫面的隨機主視覺不會洩漏異型的圖（多載入幾次，機率上若有混入一定會中）
-{
-  const { page, errors } = await newPage(browser);
-  let leaked = 0;
-  let exhibit = '';
-  for (let k = 0; k < 12; k++) {
-    await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
-    await page.reload({ waitUntil: 'networkidle0' });
-    const hero = await page.$eval('.hero', (h) => h.style.getPropertyValue('--hero'));
-    if (hero.includes('shaped-')) leaked++;
-    exhibit = await page.$eval('.exhibit', (x) => x.textContent);
-  }
-  checks.heroNeverShaped = leaked === 0;
-  checks.exhibitCountExcludesShaped = exhibit.includes('50');
+  checks.statsPageShowsShaped = (await page.$eval('.stats-screen', (n) => n.textContent)).includes('異型');
   allErrors.push(...errors);
   await page.close();
 }
@@ -219,11 +156,8 @@ for (const [image, sil] of shots) {
   });
   await page.evaluate(() => window.__game.destroy?.());
   await page.reload({ waitUntil: 'networkidle0' });
-  // 網址仍是 #/shaped，重新整理後回到異型圖片列表；選同一張圖，難度視窗會提供「繼續」
-  await page.waitForSelector('.img-card', { timeout: 10000 });
-  await page.click('.img-card:nth-child(4)');
-  await page.waitForSelector('.diff-modal');
-  await page.$$eval('.diff-row', (rows) => rows[0].querySelector('.resume').click());
+  await page.waitForSelector('.continue:not(.hidden)', { timeout: 10000 });
+  await page.click('.continue');
   await page.waitForFunction(() => window.__game, { timeout: 60000 });
   await sleep(500);
   const after = await page.evaluate(() => {
@@ -255,7 +189,7 @@ let largestMs = 0;
   await page.close();
 }
 
-// ---------------------------------------------------------------- 完成異型局：不宣告異型專屬稱號（結算、通知），但稱號照常解鎖
+// ---------------------------------------------------------------- 完成異型局：異型專屬稱號與一般稱號一樣宣告
 {
   const { page, errors } = await newPage(browser);
   await openGame(page, { shaped: true, image: 0, difficulty: 0, inTray: true });
@@ -285,19 +219,9 @@ let largestMs = 0;
   await page.waitForSelector('.overlay.result', { timeout: 8000 });
   await sleep(1500);
   const resultText = await page.$eval('.overlay.result', (e) => e.innerText);
-  const shapedNames = ['圖案初學者', '異型收藏家'];
   checks.shapedResultShown = resultText.includes('完成') && resultText.includes('新紀錄');
-  checks.resultHidesShapedTitles = shapedNames.every((w) => !resultText.includes(w));
-  checks.resultStillShowsRegularTitles = resultText.includes('初出茅廬'); // 一般的難度線稱號照常宣告
-  const toastText = await page.$$eval('.toast', (t) => t.map((x) => x.textContent).join('|'));
-  checks.toastsHideShapedTitles = shapedNames.every((w) => !toastText.includes(w));
-  // 稱號其實已靜默解鎖：回主畫面打開圖鑑，就看得到
-  await page.click('.to-home');
-  await page.waitForSelector('.titles');
-  await page.click('.titles');
-  await page.waitForSelector('.title-grid');
-  const titlesText = await page.$eval('.screen', (n) => n.textContent);
-  checks.shapedTitleSilentlyUnlocked = titlesText.includes('圖案初學者');
+  checks.resultShowsShapedTitle = resultText.includes('圖案初學者');
+  checks.resultShowsRegularTitles = resultText.includes('初出茅廬');
   allErrors.push(...errors);
   await page.close();
 }
