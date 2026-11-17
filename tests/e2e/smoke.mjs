@@ -1,7 +1,7 @@
 // 端對端冒煙測試：走過主要流程（選圖 → 拼完 → 結算 → 各頁面）並截圖。
 // 用法：npm run e2e -- smoke（或先啟動 dev server 後 node tests/e2e/smoke.mjs [截圖輸出目錄]）
 import fs from 'node:fs';
-import { DEV_URL, drag, launch, newPage, openGame, report, sleep } from './lib.mjs';
+import { DEV_URL, drag, grabPiece, launch, newPage, openGame, report, sleep } from './lib.mjs';
 
 const OUT = process.argv[2] ?? 'e2e-shots';
 fs.mkdirSync(OUT, { recursive: true });
@@ -29,21 +29,13 @@ await openGame(page);
 await shot('05-game');
 
 // 拖一片到正確位置，驗證鎖定
-const t1 = await page.evaluate(() => {
-  const g = window.__game;
-  const p = g.pieces[0];
-  return { from: g.toScreen(p.x + g.L.pw / 2, p.y + g.L.ph / 2), to: g.toScreen(g.L.pw / 2 + 3, g.L.ph / 2 + 3) };
-});
-await drag(page, t1.from, t1.to);
+const t1 = await grabPiece(page, 0, 3, 3);
+await drag(page, t1.from, t1.home);
 checks.pieceLocksInPlace = await page.evaluate(() => window.__game.pieces[0].locked);
 
 // 拖相鄰的第 2 片靠近第 1 片右側，驗證吸附
-const t2 = await page.evaluate(() => {
-  const g = window.__game;
-  const p = g.pieces[1];
-  return { from: g.toScreen(p.x + g.L.pw / 2, p.y + g.L.ph / 2), to: g.toScreen(g.L.pw * 1.5 - 4, g.L.ph / 2 + 4) };
-});
-await drag(page, t2.from, t2.to);
+const t2 = await grabPiece(page, 1, -4, 4);
+await drag(page, t2.from, t2.home);
 checks.neighborSnaps = await page.evaluate(() => window.__game.pieces[1].locked);
 await shot('06-after-drag');
 
@@ -113,7 +105,7 @@ await page.click('.back');
 await page.click('.settings');
 await page.waitForSelector('.swatch');
 await shot('13-settings');
-checks.tableColorsNamed = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent).join(',') === '橡木,胡桃木,綠絨布,石板灰');
+checks.tableColorsNamed = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent).join(',') === '墨黑,石墨灰,午夜藍,深酒紅');
 
 // 重新載入後存檔仍在
 await page.reload({ waitUntil: 'networkidle0' });

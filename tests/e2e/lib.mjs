@@ -45,7 +45,7 @@ export async function newPage(browser, viewport = { width: 1280, height: 800 }) 
  * 從主畫面一路點進遊戲並等到可以操作。
  * image：第幾張圖（從 0 起算）；difficulty：第幾個難度，-1 為最後一個；已有進度時會續玩。
  * inTray：新局的拼片放在托盤（遊戲預設）；測試預設為 false（散在桌面），因為多數測試是從桌面座標拖拼片。
- * shaped：以網址 #/shaped 進入（異型是獨立入口，主畫面與一般分類列表都沒有它）。
+ * shaped：進「異型」分類（否則進第一個分類）。
  */
 export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0, inTray = false, shaped = false } = {}) {
   await page.goto(url, { waitUntil: 'networkidle0' });
@@ -59,15 +59,11 @@ export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0,
     await page.waitForSelector(place + '.active');
   }
   await page.click('.back');
-  if (shaped) {
-    // 異型拼圖是獨立入口：主畫面沒有連結，改網址的 hash（#/shaped）直接進圖片列表
-    await page.evaluate(() => (location.hash = '#/shaped'));
-  } else {
-    await page.waitForSelector('.play');
-    await page.click('.play');
-    await page.waitForSelector('.cat-card');
-    await page.click('.cat-card');
-  }
+  await page.waitForSelector('.play');
+  await page.click('.play');
+  await page.waitForSelector('.cat-card');
+  if (shaped) await page.$$eval('.cat-card', (cards) => cards.find((c) => c.querySelector('h2').textContent === '異型').click());
+  else await page.click('.cat-card');
   await page.waitForSelector('.img-card');
   await page.click(`.img-card:nth-child(${image + 1})`);
   await page.waitForSelector('.diff-modal');
@@ -78,6 +74,57 @@ export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0,
   );
   await page.waitForFunction(() => window.__game, { timeout: 60000 });
   await sleep(400);
+}
+
+/**
+ * 第 i 片拼片上、最靠近外框中心且真的點得到它（沒被別片蓋住）的點。
+ * 開局時散片會互相重疊，也可能被工具列擋住或在畫面外；直接按拼片中心可能抓到別片或點不到，測試就會時好時壞。
+ * 回傳 from（該點的畫面座標）、home（拼片在正確位置、再偏移 (dx, dy) 世界單位時，同一點的畫面座標）與縮放；找不到可點的點時回傳 null。
+ */
+export const grabPoint = (page, i, dx = 0, dy = 0) =>
+  page.evaluate(
+    (i, dx, dy) => {
+      const g = window.__game;
+      const geom = g.L.geoms[i];
+      const p = g.pieces[i];
+      let best = null;
+      for (let k = 0; k <= 20; k++) {
+        for (let m = 0; m <= 20; m++) {
+          const lx = (geom.w * k) / 20;
+          const ly = (geom.h * m) / 20;
+          if (!g.hitCtx.isPointInPath(g.paths[i], lx, ly)) continue;
+          if (g.hitTest(p.x + lx, p.y + ly) !== i) continue;
+          // 還要真的點得到：在畫面內、沒被工具列等 DOM 元素擋住，也不在托盤上
+          const sp = g.toScreen(p.x + lx, p.y + ly);
+          if (document.elementFromPoint(sp.x, sp.y) !== g.o.canvas || g.inTray(sp)) continue;
+          const d = Math.hypot(lx - geom.w / 2, ly - geom.h / 2);
+          if (!best || d < best.d) best = { d, lx, ly };
+        }
+      }
+      if (!best) return null;
+      return { from: g.toScreen(p.x + best.lx, p.y + best.ly), home: g.toScreen(geom.x + best.lx + dx, geom.y + best.ly + dy), scale: g.cam.s };
+    },
+    i,
+    dx,
+    dy,
+  );
+
+/**
+ * 同 grabPoint，但拼片整片點不到（被擋住或在畫面外）時，先把它移到拼盤中央並放到最上層再找。
+ * 這只是測試前置，要驗證的拖曳、吸附仍由之後的真實拖曳完成。
+ */
+export async function grabPiece(page, i, dx = 0, dy = 0) {
+  const grab = await grabPoint(page, i, dx, dy);
+  if (grab) return grab;
+  await page.evaluate((i) => {
+    const g = window.__game;
+    const p = g.pieces[i];
+    p.x = (g.L.boardW - g.L.geoms[i].w) / 2;
+    p.y = (g.L.boardH - g.L.geoms[i].h) / 2;
+    g.bringToFront(p.group);
+    g.dirty = true;
+  }, i);
+  return grabPoint(page, i, dx, dy);
 }
 
 /** 以滑鼠從 from 拖到 to（畫面座標）。 */

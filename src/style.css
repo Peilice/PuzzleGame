@@ -495,27 +495,6 @@ h3 {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dots {
-  display: flex;
-  gap: 4px;
-  margin-top: 8px;
-}
-.dot {
-  font-size: 11px;
-  padding: 1px 6px;
-  border: 1px solid #ffffff55;
-  color: #d0d0d0;
-}
-.dot.done {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-.dot.prog {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .bar {
   height: 2px;
   background: #ffffff33;

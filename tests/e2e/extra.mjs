@@ -1,6 +1,6 @@
 // 端對端測試：觸控拖曳、雙指縮放、返回鍵與續玩、離線。
 // 用法：npm run e2e -- extra（離線測試需要建置後的 preview；連不上時該項略過）
-import { PREVIEW_URL, drag, launch, newPage, openGame, report, sleep } from './lib.mjs';
+import { PREVIEW_URL, drag, grabPiece, launch, newPage, openGame, report, sleep } from './lib.mjs';
 
 const browser = await launch();
 const checks = {};
@@ -18,22 +18,14 @@ const allErrors = [];
     return finger;
   };
 
-  const t = await page.evaluate(() => {
-    const g = window.__game;
-    const p = g.pieces[0];
-    return { from: g.toScreen(p.x + g.L.pw / 2, p.y + g.L.ph / 2), to: g.toScreen(g.L.pw / 2 + 4, g.L.ph / 2 - 4) };
-  });
-  await (await swipe(t.from, t.to)).end();
+  const t = await grabPiece(page, 0, 4, -4);
+  await (await swipe(t.from, t.home)).end();
   checks.touchDragLocks = await page.evaluate(() => window.__game.pieces[0].locked);
 
   // 拖曳途中放上第二指：拼片留在放開處（第 1 片右側的正確位置附近），但不吸附
-  const d2 = await page.evaluate(() => {
-    const g = window.__game;
-    const p = g.pieces[1];
-    return { from: g.toScreen(p.x + g.L.pw / 2, p.y + g.L.ph / 2), to: g.toScreen(g.L.pw * 1.5 - 3, g.L.ph / 2 + 3) };
-  });
-  const first = await swipe(d2.from, d2.to);
-  const second = await page.touchscreen.touchStart(d2.to.x + 80, d2.to.y + 80);
+  const d2 = await grabPiece(page, 1, -3, 3);
+  const first = await swipe(d2.from, d2.home);
+  const second = await page.touchscreen.touchStart(d2.home.x + 80, d2.home.y + 80);
   await first.end();
   await second.end();
   const p1 = await page.evaluate(() => {
@@ -72,18 +64,21 @@ const allErrors = [];
 {
   const { page, errors } = await newPage(browser);
   await openGame(page);
-  const t = await page.evaluate(() => {
-    const g = window.__game;
-    const p = g.pieces[5];
-    return { from: g.toScreen(p.x + g.L.pw / 2, p.y + g.L.ph / 2), to: g.toScreen(g.L.boardW / 2, g.L.boardH / 2) };
-  });
-  await drag(page, t.from, t.to);
+  const grab5 = await grabPiece(page, 5);
+  const boardCenter = await page.evaluate(() => window.__game.toScreen(window.__game.L.boardW / 2, window.__game.L.boardH / 2));
+  await drag(page, grab5.from, boardCenter);
   await sleep(1500);
   const state = () => page.evaluate(() => ({ p5: [window.__game.pieces[5].x, window.__game.pieces[5].y], seed: window.__game.seed, t: window.__game.elapsedMs }));
   const snap = await state();
   await page.click('.back');
   await page.waitForSelector('.img-card');
-  checks.progressDotShown = (await page.$('.img-card .dot.prog')) !== null;
+  // 進度顯示在難度視窗：150 片那列要有「進行中 N%」與「繼續」
+  await page.click('.img-card:nth-child(1)');
+  await page.waitForSelector('.diff-modal');
+  const row0 = await page.$$eval('.diff-row', (rows) => ({ text: rows[0].innerText, resume: !!rows[0].querySelector('.resume') }));
+  checks.progressShownInDialog = /進行中 \d+%/.test(row0.text) && row0.resume;
+  await page.click('.diff-modal .close');
+  await page.waitForSelector('.diff-modal', { hidden: true });
   await page.click('.topbar .back');
   await page.waitForSelector('.cat-card');
   await page.click('.topbar .back');
