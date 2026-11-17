@@ -15,7 +15,31 @@ import { S } from './strings';
 /** 存檔異常的提示要停久一點，讓玩家來得及讀完 */
 const ISSUE_TOAST_MS = 9000;
 
-const routes: Nav = {
+/** 重新載入後要提示「已更新」的旗標（sessionStorage 只活在這個分頁，重開 App 不會誤報） */
+const UPDATED_FLAG = 'just-updated';
+
+/** 新版已接手、等待重新載入套用 */
+let updatePending = false;
+
+/** 重新載入以套用新版，並留下旗標讓載入後提示「已更新」 */
+function reloadForUpdate() {
+  try {
+    sessionStorage.setItem(UPDATED_FLAG, '1');
+  } catch {
+    // 無法使用 sessionStorage 只是少一則提示
+  }
+  location.reload();
+}
+
+/**
+ * 新版已就緒：不在拼圖中就立刻重新載入；拼圖中則等離開遊戲畫面時再載入，不打斷遊戲。
+ */
+export function applyUpdateWhenSafe() {
+  if (document.querySelector('main.screen.game')) updatePending = true;
+  else reloadForUpdate();
+}
+
+const baseRoutes: Nav = {
   home: showHome,
   categories: showCategories,
   images: (categoryId) => void showImages(categoryId),
@@ -24,6 +48,16 @@ const routes: Nav = {
   stats: () => showStats(),
   settings: showSettings,
 };
+// 每次換畫面前，若有等待中的更新且要去的不是遊戲畫面，就先套用新版（重新載入後回到主畫面）
+const routes = Object.fromEntries(
+  Object.entries(baseRoutes).map(([name, go]) => [
+    name,
+    (...args: unknown[]) => {
+      if (updatePending && name !== 'game') return reloadForUpdate();
+      (go as (...a: unknown[]) => void)(...args);
+    },
+  ]),
+) as unknown as Nav;
 Object.assign(nav, routes);
 
 export async function startApp(initial: SaveData, issue: SaveIssue | null = null) {
@@ -37,4 +71,12 @@ export async function startApp(initial: SaveData, issue: SaveIssue | null = null
   applySettings();
   nav.home();
   if (issue) toast(esc(S.saveIssue[issue]), 'error', ISSUE_TOAST_MS);
+  let justUpdated = false;
+  try {
+    justUpdated = sessionStorage.getItem(UPDATED_FLAG) === '1';
+    sessionStorage.removeItem(UPDATED_FLAG);
+  } catch {
+    // 同上，略過提示
+  }
+  if (justUpdated) toast(esc(S.updated));
 }

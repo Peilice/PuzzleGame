@@ -76,6 +76,7 @@ function duration(ms: number) {
 export const S = {
   appName: '百景日常',
   appTagline: '一片一片，拼出好風景',
+  updated: '已更新到最新版本',
   equipped: '目前稱號',
   play: '開始拼圖',
   continueLast: '繼續上一局',
