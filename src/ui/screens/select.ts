@@ -8,6 +8,7 @@ import { formatTime } from '../format';
 import { nav } from '../nav';
 import { content, safeWrite, store } from '../state';
 import { S } from '../strings';
+import { thumbHtml } from '../shape-thumb';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
@@ -49,7 +50,7 @@ export async function showImages(categoryId: string) {
   for (const img of content.images.filter((i) => i.category === categoryId)) {
     const card = el(`
       <button class="card img-card">
-        <img src="${asset(img.thumb)}" alt="" loading="lazy">
+        ${thumbHtml(img)}
         <div class="card-body"><h3>${esc(img.name)}</h3></div>
       </button>`);
     card.addEventListener('click', () => showDifficultyDialog(img, progress));
@@ -78,7 +79,7 @@ function showDifficultyDialog(img: PuzzleImage, progress: Map<string, GameProgre
     })
     .join('');
   const { modal, close } = openModal(
-    `<div class="frame"><img class="diff-thumb" src="${asset(img.thumb)}" alt=""></div>
+    `<div class="frame">${thumbHtml(img, 'diff-thumb')}</div>
       <h2>${esc(img.name)}</h2>
       <p class="artist">${[img.artist, img.license].filter(Boolean).map((x) => esc(x!)).join('　·　')}</p>
       <p class="muted">${S.chooseDifficulty}</p>
