@@ -84,11 +84,11 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'shaped',
-    name: '異型',
+    name: '造型',
     original: false,
     cut: 'irregular',
-    titleNames: ['圖案初學者', '拼貼學徒', '剪紙達人', '花窗工匠', '織紋設計師', '拼花匠師', '萬花筒玩家', '幾何大師', '曼陀羅行者', '異形傳說'],
-    collectorName: '異型收藏家',
+    titleNames: ['圖案初學者', '拼貼學徒', '剪紙達人', '花窗工匠', '織紋設計師', '拼花匠師', '萬花筒玩家', '幾何大師', '曼陀羅行者', '造型傳說'],
+    collectorName: '造型收藏家',
   },
 ];
 

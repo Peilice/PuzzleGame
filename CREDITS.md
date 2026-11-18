@@ -1,6 +1,6 @@
 # 圖片來源（CREDITS）
 
-除「異型」分類為程式生成外，內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。
+除「造型」分類為程式生成外，內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。
 
 ## landscape
 

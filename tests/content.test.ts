@@ -6,7 +6,7 @@ import images from '../src/content/images.json';
 
 // 守門：避免把測試圖或缺檔的圖庫發佈出去
 describe('圖庫 images.json', () => {
-  // 「異型」為程式生成，暫時只有 9 張（之後補到 10 張時，把這裡的例外拿掉）
+  // 「造型」為程式生成，暫時只有 9 張（之後補到 10 張時，把這裡的例外拿掉）
   const EXPECTED: Record<string, number> = { shaped: 9 };
   it('每個分類的張數符合預期（預設 10 張）', () => {
     for (const c of CATEGORIES) expect(images.filter((i) => i.category === c.id), c.id).toHaveLength(EXPECTED[c.id] ?? 10);

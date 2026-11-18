@@ -45,7 +45,7 @@ export async function newPage(browser, viewport = { width: 1280, height: 800 }) 
  * 從主畫面一路點進遊戲並等到可以操作。
  * image：第幾張圖（從 0 起算）；difficulty：第幾個難度，-1 為最後一個；已有進度時會續玩。
  * inTray：新局的拼片放在托盤（遊戲預設）；測試預設為 false（散在桌面），因為多數測試是從桌面座標拖拼片。
- * shaped：進「異型」分類（否則進第一個分類）。
+ * shaped：進「造型」分類（否則進第一個分類）。
  */
 export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0, inTray = false, shaped = false } = {}) {
   await page.goto(url, { waitUntil: 'networkidle0' });
@@ -62,7 +62,7 @@ export async function openGame(page, { url = DEV_URL, image = 0, difficulty = 0,
   await page.waitForSelector('.play');
   await page.click('.play');
   await page.waitForSelector('.cat-card');
-  if (shaped) await page.$$eval('.cat-card', (cards) => cards.find((c) => c.querySelector('h2').textContent === '異型').click());
+  if (shaped) await page.$$eval('.cat-card', (cards) => cards.find((c) => c.querySelector('h2').textContent === '造型').click());
   else await page.click('.cat-card');
   await page.waitForSelector('.img-card');
   await page.click(`.img-card:nth-child(${image + 1})`);

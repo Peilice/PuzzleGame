@@ -12,18 +12,18 @@ const allErrors = [];
 // ---------------------------------------------------------------- 入口與列表
 {
   const { page, errors } = await newPage(browser);
-  // 異型是「選擇分類」裡的一般分類，排在最後
+  // 造型是「選擇分類」裡的一般分類，排在最後
   await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
   checks.exhibitCountIncludesShaped = (await page.$eval('.exhibit', (x) => x.textContent)).includes('59');
   await page.click('.play');
   await page.waitForSelector('.cat-card');
   const names = await page.$$eval('.cat-card h2', (h) => h.map((x) => x.textContent));
   checks.categoryListHasSix = names.length === 6;
-  checks.shapedIsLastCategory = names.at(-1) === '異型';
+  checks.shapedIsLastCategory = names.at(-1) === '造型';
   await page.$$eval('.cat-card', (cards) => cards.at(-1).click());
   await page.waitForSelector('.img-card');
   checks.shapedListNine = (await page.$$('.img-card')).length === 9;
-  checks.shapedHeaderName = (await page.$eval('header h1, .screen h1', (h) => h.textContent).catch(() => '')) === '異型';
+  checks.shapedHeaderName = (await page.$eval('header h1, .screen h1', (h) => h.textContent).catch(() => '')) === '造型';
   // 返回回到分類列表
   await page.click('.back');
   checks.shapedBackGoesCategories = !!(await page.waitForSelector('.cat-card', { timeout: 3000 }).catch(() => null));
@@ -31,19 +31,19 @@ const allErrors = [];
   await page.close();
 }
 
-// 稱號圖鑑與統計頁照常列出異型
+// 稱號圖鑑與統計頁照常列出造型
 {
   const { page, errors } = await newPage(browser);
   await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
   await page.click('.titles');
   await page.waitForSelector('.title-grid');
   const titlesText = await page.$eval('.screen', (n) => n.textContent);
-  checks.titlesPageShowsShaped = ['圖案初學者', '異型收藏家', '萬象通曉'].every((w) => titlesText.includes(w));
+  checks.titlesPageShowsShaped = ['圖案初學者', '造型收藏家', '萬象通曉'].every((w) => titlesText.includes(w));
   await page.click('.back');
   await page.waitForSelector('.stats');
   await page.click('.stats');
   await page.waitForSelector('.stats-screen');
-  checks.statsPageShowsShaped = (await page.$eval('.stats-screen', (n) => n.textContent)).includes('異型');
+  checks.statsPageShowsShaped = (await page.$eval('.stats-screen', (n) => n.textContent)).includes('造型');
   allErrors.push(...errors);
   await page.close();
 }

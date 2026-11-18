@@ -217,7 +217,7 @@ async function build() {
   await fs.rm(outDir, { recursive: true, force: true });
   await fs.mkdir(outDir, { recursive: true });
   const images = [];
-  const credits = ['# 圖片來源（CREDITS）', '', '除「異型」分類為程式生成外，內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。', ''];
+  const credits = ['# 圖片來源（CREDITS）', '', '除「造型」分類為程式生成外，內建圖片皆取自 Wikimedia Commons，授權為公有領域（Public domain）或 CC0。', ''];
   for (const [catId, entries] of Object.entries(picks)) {
     credits.push(`## ${catId}`, '', '| ID | 名稱 | 作者 | 授權 | 來源 |', '|---|---|---|---|---|');
     for (let i = 0; i < entries.length; i++) {
@@ -234,7 +234,7 @@ async function build() {
     }
     credits.push('');
   }
-  // 「異型」分類不來自 Commons，而是程式生成（scripts/shaped-art.mjs）
+  // 「造型」分類不來自 Commons，而是程式生成（scripts/shaped-art.mjs）
   const shaped = await renderShaped(outDir);
   images.push(...shaped);
   credits.push('## shaped', '', '全部為程式生成的原創幾何圖案（scripts/shaped-art.mjs），授權 CC0。', '', '| ID | 名稱 |', '|---|---|');

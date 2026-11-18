@@ -113,7 +113,7 @@ describe('稱號', () => {
     expect(visibleTitles(save, stats, content, defs)).toHaveLength(96);
   });
 
-  it('異型是一般分類：專屬稱號一開始就在圖鑑，「全部完成」類與各難度統計都計入異型', () => {
+  it('造型是一般分類：專屬稱號一開始就在圖鑑，「全部完成」類與各難度統計都計入造型', () => {
     const save = createSave();
     const r0 = run(save, content);
     const ids0 = visibleTitles(save, r0.stats, content, r0.defs).map((v) => v.def.id);

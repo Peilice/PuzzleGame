@@ -32,7 +32,7 @@ npm run preview    # 預覽建置結果
 ## 圖庫
 
 圖片取自 Wikimedia Commons，只收公有領域 / CC0。出處見 [`CREDITS.md`](CREDITS.md)。
-「異型」分類例外：圖片由 `scripts/shaped-art.mjs` 程式生成（固定種子，授權 CC0），`build` 時一併輸出。
+「造型」分類例外：圖片由 `scripts/shaped-art.mjs` 程式生成（固定種子，授權 CC0），`build` 時一併輸出。
 預覽單獨輸出：`node scripts/shaped-art.mjs <輸出資料夾>`。
 
 ```bash
