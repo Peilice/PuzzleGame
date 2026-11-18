@@ -67,6 +67,19 @@ function titleCondition(c: TitleCondition): string {
   }
 }
 
+/** 稱號圖鑑中同一系列底下的小組名稱（分類名或難度）；不分組的系列回傳 null */
+function titleGroup(c: TitleCondition): string | null {
+  switch (c.kind) {
+    case 'category':
+      return c.category;
+    case 'difficulty':
+    case 'speed':
+      return `${c.label} 片`;
+    default:
+      return null;
+  }
+}
+
 /** 較長的時間：「3 小時 5 分」或「12 分鐘」 */
 function duration(ms: number) {
   const { hours, minutes } = splitDuration(ms);
@@ -163,6 +176,8 @@ export const S = {
   lineNames,
   rarityNames,
   titleCondition,
+  titleGroup,
+  lineCount: (a: number, b: number) => `${a} / ${b}`,
   // 統計
   overview: '總覽',
   totalPlayTime: '總遊玩時間',

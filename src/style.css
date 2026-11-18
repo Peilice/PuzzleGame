@@ -1095,6 +1095,44 @@ h3 {
   background: var(--ink);
   color: #111;
 }
+.title-section + .title-section {
+  margin-top: 28px;
+}
+.title-section-head,
+.title-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 12px;
+  color: #ececec;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.title-section-head {
+  font-family: var(--serif);
+  font-size: 22px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--accent);
+}
+.title-section-head small,
+.title-group-head small {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+.title-group + .title-group {
+  margin-top: 24px;
+}
+.title-group-head {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  padding: 8px 14px;
+  border-left: 4px solid var(--accent);
+  background: linear-gradient(90deg, rgba(201, 164, 92, 0.18), rgba(201, 164, 92, 0) 70%);
+}
 .title-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -1109,15 +1147,34 @@ h3 {
   flex-direction: column;
   gap: 4px;
 }
+/* 未取得：壓暗、去色，退到背景 */
 .title-card.locked {
-  background: #121212;
-  border-left-color: #444;
+  background: rgba(18, 18, 18, 0.7);
+  border-left-color: #3a3a3a;
+  opacity: 0.6;
 }
 .title-card.locked .title-name {
   color: var(--ink-soft);
 }
+.title-card.locked .rarity {
+  filter: grayscale(1);
+}
+/* 已取得：稀有度色的底色、外框與光暈 */
+.title-card.unlocked {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc) 22%, #181818), color-mix(in srgb, var(--rc) 8%, #181818));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--rc) 55%, transparent),
+    0 0 14px color-mix(in srgb, var(--rc) 25%, transparent);
+}
 .title-card.unlocked.r-legendary {
-  background: linear-gradient(135deg, #241d0a, #33290e);
+  background: linear-gradient(135deg, #3a2d0c, #241d0a);
+}
+.title-card .got {
+  color: var(--rc);
+  font-weight: 700;
+}
+.title-card.unlocked.r-legendary .got {
+  color: #ffd27a;
 }
 .title-head {
   display: flex;
@@ -1131,6 +1188,10 @@ h3 {
 }
 .title-card.unlocked .title-name {
   color: var(--rc);
+}
+.title-card.unlocked.r-common .title-name,
+.title-card.unlocked.r-common .got {
+  color: var(--ink);
 }
 .title-card.unlocked.r-legendary .title-name {
   color: #ffd27a;
