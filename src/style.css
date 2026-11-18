@@ -573,38 +573,19 @@ h3 {
   border-radius: 0;
   max-height: 34vh;
 }
-/* 造型圖的縮圖（見 ui/shape-thumb.ts）：圖片依輪廓裁切，上面疊示意切線 */
+/* 造型圖的縮圖（見 ui/shape-thumb.ts）：圖片依輪廓裁切 */
 .shape-thumb {
   position: relative;
   aspect-ratio: 4 / 3;
   transition: transform 0.5s;
 }
 .shape-thumb img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: fill;
 }
-.shape-thumb svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.shape-thumb path {
-  fill: none;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-.shape-thumb .cut-shadow {
-  stroke: rgba(0, 0, 0, 0.45);
-  stroke-width: 2.5px;
-}
-.shape-thumb .cut-line {
-  stroke: rgba(255, 255, 255, 0.85);
-  stroke-width: 1px;
-}
-/* 卡片 hover 的放大改套在整個縮圖上，切線才會跟著圖片一起縮放 */
+/* 卡片 hover 的放大改套在整個縮圖上，避免放大後的圖超出輪廓被卡片邊緣切掉 */
 .card .shape-thumb img,
 .card:hover .shape-thumb img {
   transform: none;
@@ -612,7 +593,7 @@ h3 {
 .card:hover .shape-thumb {
   transform: scale(1.04);
 }
-/* 難度視窗：寬度跟著高度上限縮，維持 4:3，切線才對得上圖片 */
+/* 難度視窗：寬度跟著高度上限縮，維持 4:3，輪廓才不會變形 */
 .shape-thumb.diff-thumb {
   width: min(100%, calc(34vh * 4 / 3));
   max-height: none;

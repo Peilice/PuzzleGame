@@ -23,8 +23,7 @@ const allErrors = [];
   await page.$$eval('.cat-card', (cards) => cards.at(-1).click());
   await page.waitForSelector('.img-card');
   checks.shapedListNine = (await page.$$('.img-card')).length === 9;
-  // 列表縮圖要看得出造型：每張都疊了切線，非矩形輪廓的圖片有依輪廓裁切
-  checks.shapedThumbsShowCuts = (await page.$$('.img-card .shape-thumb svg .cut-line')).length === 9;
+  // 列表縮圖要看得出造型：非矩形輪廓的圖片有依輪廓裁切
   checks.shapedThumbsClipped = await page.$$eval('.img-card .shape-thumb', (t) =>
     t.every((x) => (x.dataset.silhouette === 'rect') === !x.querySelector('img').style.clipPath),
   );
