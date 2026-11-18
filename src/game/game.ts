@@ -208,11 +208,13 @@ export class PuzzleGame {
       // 圖片
       g.save();
       g.clip(path);
-      const bx = geom.x - pad;
-      const by = geom.y - pad;
-      const bw = geom.w + pad * 2;
-      const bh = geom.h + pad * 2;
-      g.drawImage(image, bx * sx, by * sy, bw * sx, bh * sy, -pad, -pad, bw, bh);
+      // 來源範圍先自己裁進圖片內：舊版 WebKit 遇到超出圖片的來源範圍時只縮小目的地、不平移起點，
+      // 靠拼盤左、上緣的拼片圖會整個偏移，另一側的凸角就變成透明
+      const x0 = Math.max(geom.x - pad, 0);
+      const y0 = Math.max(geom.y - pad, 0);
+      const x1 = Math.min(geom.x + geom.w + pad, L.boardW);
+      const y1 = Math.min(geom.y + geom.h + pad, L.boardH);
+      g.drawImage(image, x0 * sx, y0 * sy, (x1 - x0) * sx, (y1 - y0) * sy, x0 - geom.x, y0 - geom.y, x1 - x0, y1 - y0);
       // 立體邊緣
       g.lineWidth = 2;
       g.strokeStyle = 'rgba(255,255,255,0.35)';

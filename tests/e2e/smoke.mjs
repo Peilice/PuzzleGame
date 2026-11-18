@@ -10,6 +10,22 @@ const { page, errors } = await newPage(browser);
 const shot = (n) => page.screenshot({ path: `${OUT}/${n}.png` });
 const checks = {};
 
+// 記下來源範圍超出圖片的 drawImage：舊版 WebKit 對這種呼叫只縮小目的地、不平移起點，拼片凸角會變透明
+await page.evaluateOnNewDocument(() => {
+  window.__srcOutOfBounds = 0;
+  for (const C of [globalThis.CanvasRenderingContext2D, globalThis.OffscreenCanvasRenderingContext2D]) {
+    if (!C) continue;
+    const orig = C.prototype.drawImage;
+    C.prototype.drawImage = function (img, ...a) {
+      if (a.length === 8 && img instanceof HTMLImageElement) {
+        const [x, y, w, h] = a;
+        if (x < 0 || y < 0 || x + w > img.naturalWidth + 1e-6 || y + h > img.naturalHeight + 1e-6) window.__srcOutOfBounds++;
+      }
+      return orig.call(this, img, ...a);
+    };
+  }
+});
+
 await page.goto(DEV_URL, { waitUntil: 'networkidle0' });
 await shot('01-home');
 await page.click('.play');
@@ -27,6 +43,26 @@ checks.escClosesDialog = (await page.$('.diff-modal')) === null;
 
 await openGame(page);
 await shot('05-game');
+checks.drawImageSrcInBounds = await page.evaluate(() => window.__srcOutOfBounds === 0);
+// 每片拼片的輪廓內（扣掉描邊）都要有圖片，凸角不能是透明的
+checks.spritesFilled = await page.evaluate(() => {
+  const g = window.__game;
+  return g.sprites.every((s, i) => {
+    const res = s.width / (g.L.geoms[i].w + g.pad * 2);
+    const m = Object.assign(document.createElement('canvas'), { width: s.width, height: s.height });
+    const mc = m.getContext('2d');
+    mc.scale(res, res);
+    mc.translate(g.pad, g.pad);
+    mc.fill(g.paths[i]);
+    mc.lineWidth = 3;
+    mc.globalCompositeOperation = 'destination-out';
+    mc.stroke(g.paths[i]);
+    const md = mc.getImageData(0, 0, s.width, s.height).data;
+    const sd = s.getContext('2d').getImageData(0, 0, s.width, s.height).data;
+    for (let k = 3; k < md.length; k += 4) if (md[k] > 250 && sd[k] < 200) return false;
+    return true;
+  });
+});
 
 // 拖一片到正確位置，驗證鎖定
 const t1 = await grabPiece(page, 0, 3, 3);
